@@ -68,7 +68,7 @@ Qualities borrowed (not copied) from reference games: the color harmony and calm
 
 ### Liev — hairstyles (player chooses)
 - [ ] **Everyday:** straight dark-brown hair `#3B2A20` with a full, thick fringe of bangs down to the eyebrows, slightly tousled, a little sticking up at the back
-- [ ] **Styled up:** hair combed up and back on top with a little shine; skin fade on the sides; a **lightning bolt** cut into the fade on one side, shown in a lighter brown `#9A7356` (not skin color). Which side: open question.
+- [ ] **Styled up:** hair combed up and back on top with a little shine; skin fade on the sides; a **lightning bolt** cut into the fade on one side, shown in a lighter brown `#9A7356` (not skin color). Side: **left** (approved 2026-10-21).
 
 ### Liev — outfits (player chooses)
 - [ ] **Soccer:** red shirt `#D2232A` with white trim and a big white **12** on the back (and small 12 on the front); white shorts; red socks; black boots. No real team or brand logos. *(Exact layout is my suggestion; tell me if his real kit differs.)*

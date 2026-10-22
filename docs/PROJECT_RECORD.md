@@ -1,5 +1,5 @@
 # Project Record — Belly Button Adventure
-*Living document. Re-read before new work. Last updated: 2026-10-21 (Milestone 1).*
+*Living document. Re-read before new work. Last updated: 2026-10-21 (Milestone 2).*
 
 ## 1. Approved decisions (only things you said or clearly agreed to)
 | # | Decision | Source |
@@ -19,59 +19,62 @@
 | A13 | Captain's army hat option, available with any outfit including play clothes | Answers, 2026-10-21 |
 | A14 | Target: Mac with M4 chip; published with GitHub Pages | Answers, 2026-10-21 |
 | A15 | No deadline; want to start playing and testing soon | Answers, 2026-10-21 |
-| A16 | Work folder: `BellyButtonAdventure` on your Mac; you push to GitHub from there | Message, 2026-10-21 |
+| A16 | Work folder: `BellyButtonAdventure` on your Mac; you push to GitHub from there (repo jillelynx/BellyButtonAdventure) | Message, 2026-10-21 |
+| A17 | First real place after home + Belly Button's World: **West Cork** | Answers, 2026-10-21 |
+| A18 | WWII tone: **cartoon action** — soldiers get knocked dizzy and captured, no blood, no killing, no swastikas | Answers, 2026-10-21 |
+| A19 | Lightning bolt on Liev's **left** side | Answers, 2026-10-21 |
+| A20 | Belly Button is **chest-high** to Liev in the game | Answers, 2026-10-21 |
+| A21 | A hidden admin password to reach any part of the game for checking | Message, 2026-10-21 |
+| A22 | Milestone 2 characters are "okay for now"; **Liev's look needs more work later** | Message, 2026-10-21 |
 
 ## 2. My suggestions, not yet approved
 | # | Suggestion |
 |---|---|
 | S1 | Working title "Belly Button Adventure" |
-| S2 | Story details in CONCEPT.md: glowing belly button, Doodle Doors, Treasure Stamps, scrapbook ending |
+| S2 | Story details: glowing belly button, Doodle Doors, Treasure Stamps, scrapbook ending |
 | S3 | Reading, PA is home: the game starts in Liev's bedroom |
-| S4 | Character abilities: Liev kicks a soccer ball and climbs; Belly Button bounces and floats. Both can finish everything. |
-| S5 | Player can swap characters at any door or on the map |
-| S6 | Belly Button is about chest-high to Liev in the map world |
-| S7 | Visual direction, palettes and soccer kit layout in VISUAL_DIRECTION.md |
-| S8 | Captain's hat = camo patrol cap with two silver captain's bars |
-| S9 | Technical approach in FEASIBILITY.md (Three.js, no build step, `Play on my Mac.command`) |
-| S10 | Build order: home + Belly Button's World first, then one real place in full, then one place at a time |
-| S11 | WWII tone: cartoon action, no blood, defeated enemies get dizzy and are captured, no swastika imagery (see Q2) |
+| S4 | Abilities: Liev kicks a soccer ball and climbs chalk walls; Belly Button does a Belly Bounce and floats. Both can finish everything. |
+| S5 | Swap characters any time in Exploration with **C** |
+| S7 | Visual direction, palettes and soccer kit layout (VISUAL_DIRECTION.md) |
+| S8 | Captain's hat = grey-tan digital-camo patrol cap (like the cap in the photo) with two silver captain's bars |
+| S9 | Technical approach (FEASIBILITY.md): Three.js, no build step, `Play on my Mac.command` |
+| S12 | Admin secret word is `bigbutton` (change it in `src/admin.js`) |
+| S13 | Platformer collectibles are sewing buttons; checkpoint flags; falling = gentle return to the last flag (no lives) |
 
 ## 3. Open questions
-- **Q1.** After home and Belly Button's World, which real place should be built first? (Suggested: West Cork.)
-- **Q2.** WWII tone: (a) cartoon action as in S11, (b) mostly sneaking, rescuing and sabotage, or (c) your own idea?
-- **Q3.** Lightning bolt: left side, right side or both?
-- **Q4.** Should Belly Button be chest-high to Liev (S6), or small like the real toy?
+- **Q5.** What should change about Liev's look? (Accepted for now; to revisit.)
+- **Q6.** Is the soccer kit right (red shirt with white trim, white shorts, red socks, big white 12 on the back)?
+- **Q7.** Is the captain's hat the kind you meant?
 
 ## 4. Milestone plan and acceptance criteria
 
-### Milestone 1 — Concept and feasibility ✅ (this delivery)
-- [x] One-page concept · [x] feasibility note · [x] visual direction · [x] this plan · [x] project record started
+### Milestone 1 — Concept and feasibility ✅
+### Milestone 2 — Core slice and visual checkpoint ✅ delivered for your review (2026-10-21)
+- [x] Character screen: Liev (3 outfits, 2 hairstyles, hat on/off) and Belly Button — *automated screenshots; please compare with your photos*
+- [x] Walk, run, jump (forgiving timing), camera orbit with mouse drag / trackpad swipe / Q R keys, zoom with pinch / + − — *code inspected, automated checks*
+- [x] Camera never goes inside walls or under the ground — *automated check passed*
+- [x] Can't walk through walls, furniture, trees, or the friend (several directions, fast, and at 12 fps) — *automated check passed*
+- [x] Friend follows, steps aside, and walks around you instead of pushing — *automated check passed*
+- [x] Bedroom → map magic → Belly Button's World — *automated check passed*
+- [x] Door discovered → on the map → click it to travel back — *automated check passed*
+- [x] Door → platformer → Treasure Stamp → back out in front of the door — *automated check passed*
+- [x] Liev AND Belly Button can each finish the level with their own moves — *automated robot players passed*
+- [x] Separate Exploration and Platformer saves survive a page reload — *automated check passed*
+- [x] Speed meter (F key) — *needs your testing on your Mac for the real number*
+- [x] Secret admin panel — *automated check passed*
+- [x] `Play on my Mac.command` — *needs your testing (I can't run a Mac here)*
 
-### Milestone 2 — Core slice and visual checkpoint
-Playable: start screen → character select → Liev's bedroom → the map comes alive → a small patch of Belly Button's World with one Doodle Door → a short test platformer level → back out → the door appears on the map.
-- [ ] Character select shows Liev (3 outfits, 2 hairstyles, hat on/off) and Belly Button. Every detail on the VISUAL_DIRECTION checklists is checked against the photos.
-- [ ] Walk, run, jump (with forgiving timing), camera orbit with mouse and trackpad, zoom with pinch or scroll.
-- [ ] Camera never goes inside walls or the ground.
-- [ ] Nothing can be walked through: walls, furniture, the friend character (tested from several directions and speeds).
-- [ ] The friend follows without blocking or shoving.
-- [ ] Door → platformer → back works both ways; the door shows on the map, and clicking it travels there.
-- [ ] Separate saves for each mode survive a page reload.
-- [ ] Speed meter (F key). Screenshots from fixed spots delivered for your approval of the look.
-- [ ] `Play on my Mac.command` opens the game.
+### Milestone 3 — First complete loop: West Cork
+One real place fully built with landmarks (green fields, mountains, rocky beach, soccer pitch), 2 platformer levels, Treasure Stamps, hints, ambient sounds, autosave, gentle world edges.
 
-### Milestone 3 — First complete loop
-One real place fully built (Q1) with landmarks, 2 platformer levels, Treasure Stamps, hints, sound and volume controls, autosave, gentle "turn back" world edges.
-
-### Milestone 4 — Expansion
-Add the remaining places one at a time, each with its own tests before the next starts. The Time Door to France 1944 comes after its tone is approved (Q2).
-
+### Milestone 4 — Expansion (one place at a time, each tested before the next)
 ### Milestone 5 — Polish
-Animation, lighting, sound, transitions, readability, speed.
-
 ### Milestone 6 — Release check
-Full play-through, all regression checks, a test on your Mac, final CREDITS.md and how-to-play.
 
 ## 5. Known issues and verification
-- Nothing is playable yet, so nothing gameplay-related is verified.
-- Verified (automated check passed): Three.js 0.180 downloads and installs; the test browser can draw 3D in software mode.
-- Not verifiable by me: real speed on your M4 Mac (needs your testing at Milestone 2).
+- **Liev's character model needs another pass** (you'll tell me what to change).
+- Real speed on your M4 Mac: **not measured** (the test browser draws in slow software mode). Press **F** in the game to see it.
+- Sounds and music: made in code; **not heard by me** — please check volume and feel.
+- Exact fonts: on a Mac the game uses the "Chalkboard SE" handwriting font; my screenshots show a substitute font.
+- Liev is a stylized storybook figure, not a photo likeness.
+- Gamepad (game controller) support: not added yet.
