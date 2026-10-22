@@ -22,6 +22,11 @@ An original adventure game starring Belly Button the plush bear and his best fri
 | Race timer | — | turn on in Settings (off by default) |
 | Go back / pause | Esc | Esc |
 
+## Retro pixel level (Pixel Peaks, behind the green Pixel Door)
+← → move · Shift run · Space jump · ↓ duck/crawl · run + ↓ slide · X kick the ball · Z punch crates · jump into ? boxes from below.
+
+To change Liev's pixel animations: replace `tools/liev_retro_source_A.png` with a new sheet (8 frames × 7 rows in the same order), then ask Claude to run `tools/slice_sprites.py`. It re-cuts and lines up the frames into `assets/sprites/`.
+
 ## Project files
 - Story and design: `docs/CONCEPT.md` · Look: `docs/VISUAL_DIRECTION.md` · Tech plan: `docs/FEASIBILITY.md`
 - Decisions, plan and checklists: `docs/PROJECT_RECORD.md`

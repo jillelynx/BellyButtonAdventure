@@ -33,6 +33,9 @@
 | A26 | West Cork means the **Beara Peninsula** | Answers, 2026-10-22 |
 | A27 | Rest-spot reward = treats (cookie, honey, cocoa), counted separately from buttons | Answers, 2026-10-22 |
 | A28 | Main menu buttons: own colors + pictures (Play yellow ▶, Characters blue 🐻, Settings mint ⚙️, New adventure pink 🗺️); no extra Levels button for now | Answers, 2026-10-22 |
+| A29 | Retro level uses **your pixel sprite sheets** for Liev (idle, walk, crouch/slide, kick, punch, run, jump) | Message, 2026-10-22 |
+| A30 | Play clothes: **black shorts**, white socks, black shoes (from your character brief) | Brief, 2026-10-22 |
+| A31 | 3D Liev route (c): Claude builds a rigged Liev in Blender now; swap in a Meshy/Tripo + Mixamo one later if it looks better | Message, 2026-10-22 |
 
 ## 2. My suggestions, not yet approved
 | # | Suggestion |
@@ -49,7 +52,11 @@
 | S13 | Platformer collectibles are sewing buttons; falling = gentle return to the last rest spot (no lives) |
 | S14 | First pixel-art level goes in West Cork |
 | S15 | 3D sandbox first version: Lost Buttons, Ring Race, Felt Bunny, secrets (docs/PHASE1_3D_PLAN.md) |
-| S16 | Picture signs instead of word signs in levels |
+| S16 | Picture signs instead of word signs in levels (done in the retro level) |
+| S17 | First retro level "Pixel Peaks" behind a green **Pixel Door** in Belly Button's World (can move to West Cork later) |
+| S18 | In retro levels Liev always plays (no Belly Button sprite sheet yet); Belly Button waits at the finish as a small pixel friend |
+| S19 | Retro controls: Shift run, ↓ duck/crawl, run + ↓ slide, X kick, Z punch; ? boxes and crates give stars |
+| S20 | (approved, see A31) |
 
 ## 3. Open questions
 - **Q5.** What should change about Liev's look? (Accepted for now; to revisit.)
@@ -80,6 +87,12 @@
 - [x] Main menu colors and pictures — *automated check + screenshot*
 - [x] Cozy rest spots (pillow fort, blanket nook, picnic): checkpoints + one treat each per run — *automated checks passed*
 - [x] 3D sandbox plan written (docs/PHASE1_3D_PLAN.md); shared progress code in src/progress.js
+
+### Retro level — Pixel Peaks ✅ delivered 2026-10-22
+- [x] Your sprite sheet cut into 56 aligned frames (feet on one ground line), crisp pixel scaling — *automated check + screenshots*
+- [x] Animation follows what Liev is doing: idle, walk, run, jump rise/apex/fall, landing, duck/crawl, slide, kick, punch, resting — *automated checks passed*
+- [x] Collisions: can't walk or jump past the log wall; slide or crawl under it; gate stays shut until a goal; water returns you to the last rest spot — *automated checks passed*
+- [x] Same movement at 60 and 15 frames per second — *automated check passed*
 
 ### Milestone 3 — First complete loop: West Cork (Beara Peninsula)
 One real place fully built with landmarks (green fields, mountains, rocky beach, soccer pitch), 2 platformer levels, Treasure Stamps, hints, ambient sounds, autosave, gentle world edges.

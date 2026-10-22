@@ -1,0 +1,150 @@
+{
+ "image": "liev_retro.png",
+ "cell": [
+  80,
+  72
+ ],
+ "origin": [
+  40,
+  68
+ ],
+ "note": "Feet sit on y=origin[1] in every cell; the game moves the character, frames never do.",
+ "animations": {
+  "idle": {
+   "row": 0,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "fps": 6,
+   "loop": true
+  },
+  "walk": {
+   "row": 1,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "fps": 10,
+   "loop": true
+  },
+  "duck": {
+   "row": 2,
+   "frames": [
+    0,
+    1
+   ],
+   "fps": 14,
+   "loop": false,
+   "note": "hold the last frame while ducking"
+  },
+  "slide": {
+   "row": 2,
+   "frames": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "fps": 12,
+   "loop": false,
+   "hold": [
+    3,
+    5
+   ],
+   "recover": [
+    6,
+    7
+   ],
+   "note": "columns 3-5 repeat while sliding; 6-7 stand back up"
+  },
+  "kick": {
+   "row": 3,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "fps": 14,
+   "loop": false,
+   "contact": 3
+  },
+  "punch": {
+   "row": 4,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "fps": 16,
+   "loop": false,
+   "contact": 3
+  },
+  "run": {
+   "row": 5,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "fps": 14,
+   "loop": true
+  },
+  "jump": {
+   "row": 6,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "fps": 12,
+   "loop": false,
+   "phases": {
+    "anticipate": 0,
+    "takeoff": 1,
+    "rise": [
+     2,
+     3
+    ],
+    "apex": 4,
+    "fall": 5,
+    "land": 6,
+    "recover": 7
+   }
+  }
+ }
+}

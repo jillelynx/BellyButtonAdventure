@@ -4,6 +4,7 @@ import { felt, plushDash, gradient, buttonFace, paperSign, makeCanvas, toTexture
 import { rng } from '../util.js';
 
 export const DOOR1 = { id: 'bbw-door1', level: 'bbw-door1', name: 'Button Hill Door', x: 0, z: -20 };
+export const DOOR2 = { id: 'bbw-door2', level: 'bbw-door2', name: 'Pixel Door', x: -14, z: 16, retro: true };
 const EDGE = 39;          // you can't go past this (the pillow hills rise up here)
 const EDGE_WARN = 36.5;   // gentle message starts here
 
@@ -77,7 +78,7 @@ export function buildBBWorld() {
   const canopyColors = ['#F2A7B5', '#A8D8B9', '#FFD98A', '#B9C8F2', '#7FC79A', '#F6B98A'];
   const trunkMat = plush('#B07A4A', felt('#B07A4A', 12, 0.08));
   const seamMat = std('#FFF8EC');
-  const avoid = [[DOOR1.x, DOOR1.z, 6], [14, 6, 4], [-17, -7, 4], [9, 13, 3.5], [0, 9, 4], [10, -8, 3], [-9, 5, 3], [-4, -12, 3]];
+  const avoid = [[DOOR1.x, DOOR1.z, 6], [DOOR2.x, DOOR2.z, 6], [14, 6, 4], [-17, -7, 4], [9, 13, 3.5], [0, 9, 4], [10, -8, 3], [-9, 5, 3], [-4, -12, 3]];
   const okSpot = (x, z) => Math.abs(x - pathX(z)) > 3 && avoid.every(([ax, az, ar]) => Math.hypot(x - ax, z - az) > ar);
   let placed = 0;
   for (let tries = 0; tries < 400 && placed < 22; tries++) {
@@ -135,44 +136,49 @@ export function buildBBWorld() {
   circles.push({ x: 14, z: 6, r: 1.65 });
   camSpheres.push({ c: yarn.position.clone(), r: 1.7 });
 
-  // ---- The Doodle Door on Button Hill ----
-  const door = new THREE.Group();
-  const dy = terrain(DOOR1.x, DOOR1.z);
-  door.position.set(DOOR1.x, dy - 0.05, DOOR1.z);
-  const outline = new THREE.MeshBasicMaterial({ color: '#2A2C33', side: THREE.BackSide });
-  const crayon = (w, h, d, color, x, y, z) => {
-    const g = new THREE.BoxGeometry(w, h, d);
-    const m = cast(new THREE.Mesh(g, std(color, { roughness: 0.7 }))); m.position.set(x, y, z);
-    const o = new THREE.Mesh(g, outline); o.scale.set(1 + 0.08 / w, 1 + 0.08 / h, 1 + 0.08 / d); m.add(o);
-    door.add(m); return m;
+  // ---- Doodle Doors (each leads to a platformer level) ----
+  const makeDoor = (D, C) => {
+    const door = new THREE.Group();
+    const dy = terrain(D.x, D.z);
+    door.position.set(D.x, dy - 0.05, D.z);
+    const outline = new THREE.MeshBasicMaterial({ color: '#2A2C33', side: THREE.BackSide });
+    const crayon = (w, h, d, color, x, y, z) => {
+      const g = new THREE.BoxGeometry(w, h, d);
+      const m = cast(new THREE.Mesh(g, std(color, { roughness: 0.7 }))); m.position.set(x, y, z);
+      const o = new THREE.Mesh(g, outline); o.scale.set(1 + 0.08 / w, 1 + 0.08 / h, 1 + 0.08 / d); m.add(o);
+      door.add(m); return m;
+    };
+    crayon(0.26, 2.7, 0.3, C.frame, -0.8, 1.35, 0); crayon(0.26, 2.7, 0.3, C.frame, 0.8, 1.35, 0);
+    crayon(1.86, 0.3, 0.32, C.lintel, 0, 2.8, 0);
+    crayon(1.9, 0.12, 0.6, C.frame, 0, 0.06, 0.05);
+    const glowMat = new THREE.MeshBasicMaterial({ map: gradient([[0, '#FFF6D6'], [0.6, '#FFD98A'], [1, '#FFB765']]), transparent: true, opacity: 0.95, side: THREE.DoubleSide });
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 2.55), glowMat); glow.position.set(0, 1.4, -0.05); door.add(glow);
+    const hinge = new THREE.Group(); hinge.position.set(-0.67, 0, 0.05); door.add(hinge);
+    const panel = new THREE.Group(); hinge.add(panel);
+    const pmesh = cast(new THREE.Mesh(new THREE.BoxGeometry(1.3, 2.5, 0.08), std(C.panel, { roughness: 0.6 }))); pmesh.position.set(0.65, 1.37, 0); panel.add(pmesh);
+    const po = new THREE.Mesh(pmesh.geometry, outline); po.scale.set(1.05, 1.03, 1.6); pmesh.add(po);
+    const star = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? 0.12 : 0.28; i ? star.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : star.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    const starM = new THREE.Mesh(new THREE.ShapeGeometry(star), new THREE.MeshStandardMaterial({ color: C.star, side: THREE.DoubleSide })); starM.position.set(0.65, 1.85, 0.045); panel.add(starM);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), std('#F2C230', { roughness: 0.3, metalness: 0.4 })); knob.position.set(1.12, 1.25, 0.08); panel.add(knob);
+    hinge.rotation.y = -1.75;
+    const doorLight = new THREE.PointLight('#FFC870', 4, 7, 1.8); doorLight.position.set(0, 1.4, 0.6); door.add(doorLight);
+    // Sparkles.
+    const spN = 40, spGeo = new THREE.BufferGeometry(), spPos = new Float32Array(spN * 3), spSeed = [];
+    for (let i = 0; i < spN; i++) spSeed.push([R() * 6.28, 0.6 + R() * 1.1, R() * 2.8, 0.5 + R()]);
+    spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
+    const sparkles = new THREE.Points(spGeo, new THREE.PointsMaterial({ color: '#FFF1B0', size: 0.09, transparent: true, opacity: 0.9, depthWrite: false }));
+    door.add(sparkles);
+    scene.add(door);
+    circles.push({ x: D.x - 0.8, z: D.z, r: 0.22 }, { x: D.x + 0.8, z: D.z, r: 0.22 });
+    // The open door panel sticks out in front-left: block it with two small circles.
+    const pa = -1.75; for (const t of [0.4, 0.95]) circles.push({ x: D.x - 0.67 + Math.cos(pa) * 1.3 * t, z: D.z + 0.05 - Math.sin(pa) * 1.3 * t, r: 0.12 });
+    // The back of the door frame: you can walk behind it, but not through the glow.
+    circles.push({ x: D.x - 0.3, z: D.z - 0.05, r: 0.28 }, { x: D.x + 0.3, z: D.z - 0.05, r: 0.28 });
+    return { front: new THREE.Vector3(D.x, 0, D.z + 1.7), glowMat, doorLight, spGeo, spPos, spSeed, spN };
   };
-  crayon(0.26, 2.7, 0.3, '#F2C230', -0.8, 1.35, 0); crayon(0.26, 2.7, 0.3, '#F2C230', 0.8, 1.35, 0);
-  crayon(1.86, 0.3, 0.32, '#F29A3A', 0, 2.8, 0);
-  crayon(1.9, 0.12, 0.6, '#F2C230', 0, 0.06, 0.05);
-  const glowMat = new THREE.MeshBasicMaterial({ map: gradient([[0, '#FFF6D6'], [0.6, '#FFD98A'], [1, '#FFB765']]), transparent: true, opacity: 0.95, side: THREE.DoubleSide });
-  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 2.55), glowMat); glow.position.set(0, 1.4, -0.05); door.add(glow);
-  const hinge = new THREE.Group(); hinge.position.set(-0.67, 0, 0.05); door.add(hinge);
-  const panel = new THREE.Group(); hinge.add(panel);
-  const pmesh = cast(new THREE.Mesh(new THREE.BoxGeometry(1.3, 2.5, 0.08), std('#4A90D9', { roughness: 0.6 }))); pmesh.position.set(0.65, 1.37, 0); panel.add(pmesh);
-  const po = new THREE.Mesh(pmesh.geometry, outline); po.scale.set(1.05, 1.03, 1.6); pmesh.add(po);
-  const star = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? 0.12 : 0.28; i ? star.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : star.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
-  const starM = new THREE.Mesh(new THREE.ShapeGeometry(star), new THREE.MeshStandardMaterial({ color: '#C8473D', side: THREE.DoubleSide })); starM.position.set(0.65, 1.85, 0.045); panel.add(starM);
-  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), std('#F2C230', { roughness: 0.3, metalness: 0.4 })); knob.position.set(1.12, 1.25, 0.08); panel.add(knob);
-  hinge.rotation.y = -1.75;
-  const doorLight = new THREE.PointLight('#FFC870', 4, 7, 1.8); doorLight.position.set(0, 1.4, 0.6); door.add(doorLight);
-  // Sparkles.
-  const spN = 40, spGeo = new THREE.BufferGeometry(), spPos = new Float32Array(spN * 3), spSeed = [];
-  for (let i = 0; i < spN; i++) spSeed.push([R() * 6.28, 0.6 + R() * 1.1, R() * 2.8, 0.5 + R()]);
-  spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
-  const sparkles = new THREE.Points(spGeo, new THREE.PointsMaterial({ color: '#FFF1B0', size: 0.09, transparent: true, opacity: 0.9, depthWrite: false }));
-  door.add(sparkles);
-  scene.add(door);
-  circles.push({ x: DOOR1.x - 0.8, z: DOOR1.z, r: 0.22 }, { x: DOOR1.x + 0.8, z: DOOR1.z, r: 0.22 });
-  // The open door panel sticks out in front-left: block it with two small circles.
-  const pa = -1.75; for (const t of [0.4, 0.95]) circles.push({ x: DOOR1.x - 0.67 + Math.cos(pa) * 1.3 * t, z: DOOR1.z + 0.05 - Math.sin(pa) * 1.3 * t, r: 0.12 });
-  // The back of the door frame: you can walk behind it, but not through the glow.
-  circles.push({ x: DOOR1.x - 0.3, z: DOOR1.z - 0.05, r: 0.28 }, { x: DOOR1.x + 0.3, z: DOOR1.z - 0.05, r: 0.28 });
-  const doorFront = new THREE.Vector3(DOOR1.x, 0, DOOR1.z + 1.7);
+  const doorObjs = [makeDoor(DOOR1, { frame: '#F2C230', lintel: '#F29A3A', panel: '#4A90D9', star: '#C8473D' }),
+    makeDoor(DOOR2, { frame: '#7FD14B', lintel: '#2347C4', panel: '#F2B530', star: '#FFFFFF' })];  // the retro Pixel Door
+  const doorFront = doorObjs[0].front, door2Front = doorObjs[1].front;
 
   // ---- Map pages pinned in the world ----
   const page = (x, z, rotY, lines, title, color) => {
@@ -207,7 +213,8 @@ export function buildBBWorld() {
   const goals = (ctx) => {
     const done = ctx.stamps.includes(DOOR1.id);
     if (!done) return [{ pos: doorFront, text: ctx.doorsFound.includes(DOOR1.id) ? 'Go through the glowing Doodle Door on Button Hill!' : 'Follow the stitched path to find something glowing on the hill!' }];
-    return [{ pos: new THREE.Vector3(-17, 0, -6), text: 'You got the Treasure Stamp! The West Cork page is being colored in for next time.' }];
+    if (!ctx.stamps.includes(DOOR2.id)) return [{ pos: door2Front, text: 'Look behind you! A green Pixel Door leads to a retro level.' }];
+    return [{ pos: new THREE.Vector3(-17, 0, -6), text: 'You got both Treasure Stamps! The West Cork page is being colored in for next time.' }];
   };
 
   const tv = new THREE.Vector3();
@@ -216,7 +223,7 @@ export function buildBBWorld() {
     spawn: { pos: new THREE.Vector3(0, 0, 9), yaw: Math.PI, camYaw: 0 },
     circles, boxes: [], camSpheres, maxCamDist: 7,
     terrain,
-    doors: [{ ...DOOR1, front: doorFront, yaw: 0 }],
+    doors: [{ ...DOOR1, front: doorFront, yaw: 0 }, { ...DOOR2, front: door2Front, yaw: 0 }],
     limit(p) {
       const r = Math.hypot(p.x, p.z);
       if (r > EDGE) { p.x *= EDGE / r; p.z *= EDGE / r; }
@@ -237,6 +244,7 @@ export function buildBBWorld() {
     },
     interact: [
       { id: 'door1', pos: doorFront, r: 1.6, prompt: () => 'Go through the Doodle Door', action: 'door', door: DOOR1.id },
+      { id: 'door2', pos: door2Front, r: 1.6, prompt: () => 'Go through the Pixel Door', action: 'door', door: DOOR2.id },
       { id: 'westcork', pos: new THREE.Vector3(-17, 0, -7), r: 2.4, prompt: () => 'Look at the West Cork page', action: 'westcork' },
       { id: 'home', pos: new THREE.Vector3(9, 0, 13), r: 2.4, prompt: () => "Go home to Liev's room", action: 'home' },
     ],
@@ -251,12 +259,14 @@ export function buildBBWorld() {
         f.obj.rotation.z = Math.sin(t * 1.6 + f.ph) * 0.07 + Math.sin(t * 14 + f.ph) * 0.35 * f.bump;
       }
       for (const c of clouds) { c.position.x += dt * 0.6; if (c.position.x > 80) c.position.x = -80; }
-      glowMat.opacity = 0.85 + Math.sin(t * 3) * 0.1; doorLight.intensity = 3.5 + Math.sin(t * 3) * 0.8;
-      for (let i = 0; i < spN; i++) {
-        const [a, r, h, sp] = spSeed[i]; const aa = a + t * sp * 0.6;
-        spPos[i * 3] = Math.cos(aa) * r; spPos[i * 3 + 1] = 0.2 + ((h + t * sp * 0.4) % 2.8); spPos[i * 3 + 2] = Math.sin(aa) * r * 0.5 + 0.3;
+      for (const { glowMat, doorLight, spN, spSeed, spPos, spGeo } of doorObjs) {
+        glowMat.opacity = 0.85 + Math.sin(t * 3) * 0.1; doorLight.intensity = 3.5 + Math.sin(t * 3) * 0.8;
+        for (let i = 0; i < spN; i++) {
+          const [a, r, h, sp] = spSeed[i]; const aa = a + t * sp * 0.6;
+          spPos[i * 3] = Math.cos(aa) * r; spPos[i * 3 + 1] = 0.2 + ((h + t * sp * 0.4) % 2.8); spPos[i * 3 + 2] = Math.sin(aa) * r * 0.5 + 0.3;
+        }
+        spGeo.attributes.position.needsUpdate = true;
       }
-      spGeo.attributes.position.needsUpdate = true;
     },
   };
 }

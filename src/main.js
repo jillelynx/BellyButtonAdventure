@@ -8,9 +8,12 @@ import { DEFAULT_CHOICE, LIEV } from './characters/looks.js';
 import { Stage } from './select.js';
 import { Explore } from './explore.js';
 import { Platformer } from './platformer.js';
+import { Retro, RETRO_LEVELS } from './retro.js';
 import { LEVELS } from './levels.js';
 import { PLACES, drawAdventureMap } from './mapdraw.js';
-import { DOOR1 } from './areas/bbworld.js';
+import { DOOR1, DOOR2 } from './areas/bbworld.js';
+const DOORS = [DOOR1, DOOR2];
+const PLAY_MODES = ['explore', 'platformer', 'retro'];
 import { ADMIN_WORD } from './admin.js';
 import { Records, formatTime } from './progress.js';
 
@@ -36,7 +39,7 @@ window.__bba = game; // used by the automated tests
 Input.init(canvas);
 Input.wheelMode = game.settings.wheel;
 game.audio.setVolumes(game.settings);
-const modes = { title: new Stage(game), explore: new Explore(game), platformer: new Platformer(game) };
+const modes = { title: new Stage(game), explore: new Explore(game), platformer: new Platformer(game), retro: new Retro(game) };
 modes.select = modes.title;
 game.modes = modes;
 
@@ -74,14 +77,14 @@ game.setMode = async function (name, opts = {}) {
 game.enterDoor = function (levelId, returnTo) {
   this.audio.sfx('door');
   this.lastReturn = returnTo;
-  this.setMode('platformer', { level: levelId, returnTo });
+  this.setMode(RETRO_LEVELS[levelId] ? 'retro' : 'platformer', { level: levelId, returnTo });
 };
 game.travel = async function (dest) {
   const s = this.saves.explore;
   let opts;
   if (dest === 'home') opts = { area: 'bedroom' };
   else if (dest === 'bbworld') { if (!s.unlocked.bbworld) return; opts = { area: 'bbworld' }; }
-  else if (dest === DOOR1.id) { if (!s.doorsFound.includes(dest)) return; const d = modes.explore.getArea('bbworld').doors[0]; opts = { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI }; }
+  else if (DOORS.some(d => d.id === dest)) { if (!s.doorsFound.includes(dest)) return; const d = modes.explore.getArea('bbworld').doors.find(x => x.id === dest); opts = { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI }; }
   else return;
   this.ui.closePanel(); this.paused = false;
   this.audio.sfx('paper');
@@ -90,7 +93,7 @@ game.travel = async function (dest) {
   } else this.setMode('explore', opts);
 };
 game.leaveLevel = function () {
-  const rt = modes.platformer.returnTo || { area: 'bbworld' };
+  const rt = (modes[this.modeName] && modes[this.modeName].returnTo) || { area: 'bbworld' };
   this.setMode('explore', { area: rt.area, pos: rt.pos ? rt.pos.clone() : null, yaw: rt.yaw });
 };
 
@@ -175,9 +178,9 @@ function selectBack(after) {
 }
 
 function pause() {
-  if (!['explore', 'platformer'].includes(game.modeName) || game.busy) return;
+  if (!PLAY_MODES.includes(game.modeName) || game.busy) return;
   game.paused = true; game.ui.prompt(null);
-  const plat = game.modeName === 'platformer';
+  const plat = game.modeName !== 'explore';
   const p = game.ui.panel(`<h2>Paused</h2><div class="col">
     <button class="btn go" data-act="resume">Keep playing</button>
     <button class="btn" data-act="map">Map</button>
@@ -215,18 +218,18 @@ function showSettings(back) {
     wheel: (b) => { st.wheel = b.dataset.v; Input.wheelMode = st.wheel; game.saveSettings(); showSettings(back); },
     q: (b) => { st.quality = b.dataset.v; game.saveSettings(); applyQuality(); showSettings(back); },
     fps: () => { st.showFps = !st.showFps; game.saveSettings(); if (!st.showFps) game.ui.fps(null); showSettings(back); },
-    timer: () => { st.timer = !st.timer; game.saveSettings(); if (game.modeName === 'platformer') modes.platformer.updateHud(); showSettings(back); },
+    timer: () => { st.timer = !st.timer; game.saveSettings(); if (game.modeName === 'platformer' || game.modeName === 'retro') modes[game.modeName].updateHud(); showSettings(back); },
     back: () => back(),
   });
   game.onEsc = () => back();
 }
 
 function showMap(fromPause = false) {
-  if (!['explore', 'platformer'].includes(game.modeName)) return;
+  if (!PLAY_MODES.includes(game.modeName)) return;
   game.paused = true; game.mapOpen = true; game.ui.prompt(null); game.audio.sfx('paper');
   const s = game.saves.explore, ps = game.saves.platformer;
   const doors = [];
-  if (s.doorsFound.includes(DOOR1.id)) doors.push({ id: DOOR1.id, name: DOOR1.name, place: "Belly Button's World", stamp: ps.stamps.includes(DOOR1.id) });
+  for (const D of DOORS) if (s.doorsFound.includes(D.id)) doors.push({ id: D.id, name: D.name, place: "Belly Button's World", stamp: ps.stamps.includes(D.id) });
   const p = game.ui.panel(`<h2>Liev's Adventure Map</h2>
     <div class="map-box"><canvas width="1000" height="660"></canvas>${PLACES.map(pl => {
       const open = pl.id === 'home' || (pl.id === 'bbworld' && s.unlocked.bbworld);
@@ -249,25 +252,28 @@ game.showComplete = function (def, got, total, extra = {}) {
   const tm = extra.time;
   const timeHtml = tm ? (tm.record ? `<div class="record">🏆 New record! ${formatTime(tm.t)}</div>${tm.old != null ? `<p>Old best: ${formatTime(tm.old)}</p>` : ''}` : `<p>⏱ Time: <b>${formatTime(tm.t)}</b> &nbsp; (best ${formatTime(tm.old)})</p>`) : '';
   if (tm && tm.record) game.ui.confetti();
-  const p = game.ui.panel(`<h1>⭐ Treasure Stamp! ⭐</h1><p><b>${esc(def.name)}</b> is complete!</p><p>🔘 Buttons: <b>${got} / ${total}</b> &nbsp; 🍪 Treats: <b>${extra.treats ?? 0} / ${extra.treatsTotal ?? 0}</b></p>${timeHtml}
+  const p = game.ui.panel(`<h1>⭐ Treasure Stamp! ⭐</h1><p><b>${esc(def.name)}</b> is complete!</p><p>${def.collectName === 'Stars' ? '⭐ Stars' : '🔘 Buttons'}: <b>${got} / ${total}</b> &nbsp; 🍪 Treats: <b>${extra.treats ?? 0} / ${extra.treatsTotal ?? 0}</b></p>${timeHtml}
     <div class="row"><button class="btn go big" data-act="back">Back to ${esc(def.place)}</button><button class="btn" data-act="again">Play again</button></div>`, 'clear');
-  wire(p, { back: () => game.leaveLevel(), again: () => game.setMode('platformer', { level: modes.platformer.levelId, returnTo: modes.platformer.returnTo }) });
+  wire(p, { back: () => game.leaveLevel(), again: () => { const m = modes[game.modeName]; game.setMode(game.modeName, { level: m.levelId, returnTo: m.returnTo }); } });
   game.onEsc = () => game.leaveLevel();
 };
 
 // ---------- Secret admin panel ----------
 function showAdmin() {
   game.audio.init();
-  const wasPlaying = ['explore', 'platformer'].includes(game.modeName);
+  const wasPlaying = PLAY_MODES.includes(game.modeName);
   if (wasPlaying) game.paused = true;
   const lvl = LEVELS[DOOR1.level];
   const p = game.ui.panel(`<div class="admin"><h2>🔑 Admin Panel</h2>
     <div class="admin-section"><h3>Go anywhere</h3><div class="row">
       <button class="btn" data-act="tp" data-v="home">Liev's Room</button>
       <button class="btn" data-act="tp" data-v="bbworld">Belly Button's World</button>
-      <button class="btn" data-act="tp" data-v="door">Button Hill Door</button></div></div>
+      <button class="btn" data-act="tp" data-v="door">Button Hill Door</button>
+      <button class="btn" data-act="tp" data-v="door2">Pixel Door</button></div></div>
     <div class="admin-section"><h3>Platformer: ${esc(lvl.name)}</h3><div class="row">
       ${lvl.checkpoints.map((_, i) => `<button class="btn" data-act="lvl" data-v="${i}">${i === 0 ? 'Start' : 'Rest spot ' + i}</button>`).join('')}</div></div>
+    <div class="admin-section"><h3>Retro level: ${esc(RETRO_LEVELS[DOOR2.level].name)}</h3><div class="row">
+      <button class="btn" data-act="retro" data-v="0">Start</button><button class="btn" data-act="retro" data-v="1">Rest spot 1</button><button class="btn" data-act="retro" data-v="2">Rest spot 2</button></div></div>
     <div class="admin-section"><h3>Play as</h3><div class="row">
       <button class="btn" data-act="as" data-v="liev">Liev</button><button class="btn" data-act="as" data-v="bellybutton">Belly Button</button></div></div>
     <div class="admin-section"><h3>Progress</h3><div class="row">
@@ -276,9 +282,10 @@ function showAdmin() {
       <button class="btn" data-act="reset">Reset all progress</button>
       <button class="btn" data-act="fps">Speed meter on/off</button></div></div>
     <div class="admin-section"><button class="btn go" data-act="close">Close</button></div></div>`);
-  const unlock = () => { const s = game.saves.explore; s.unlocked.bbworld = true; s.started = true; if (!s.doorsFound.includes(DOOR1.id)) s.doorsFound.push(DOOR1.id); game.writeSave('explore'); };
+  const unlock = () => { const s = game.saves.explore; s.unlocked.bbworld = true; s.started = true; for (const D of DOORS) if (!s.doorsFound.includes(D.id)) s.doorsFound.push(D.id); game.writeSave('explore'); };
   wire(p, {
-    tp: (b) => { unlock(); game.travel(b.dataset.v === 'door' ? DOOR1.id : b.dataset.v); },
+    tp: (b) => { unlock(); game.travel(b.dataset.v === 'door' ? DOOR1.id : b.dataset.v === 'door2' ? DOOR2.id : b.dataset.v); },
+    retro: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[1]; game.setMode('retro', { level: DOOR2.level, checkpoint: +b.dataset.v, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
     lvl: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[0]; game.setMode('platformer', { level: DOOR1.level, checkpoint: +b.dataset.v, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
     as: (b) => { game.choice.player = b.dataset.v; game.saveLook(); game.ui.toast(`Now playing as ${b.dataset.v === 'liev' ? 'Liev' : 'Belly Button'}`, 2); if (game.modeName === 'explore') { modes.explore.buildChars(); game.ui.hud(true, modes.explore.area.title, modes.explore.helpText()); } closeAdmin(); },
     unlock: () => { unlock(); game.ui.toast('Everything unlocked!', 2); },
@@ -293,6 +300,7 @@ function showAdmin() {
     if (game.modeName === 'title') showTitle();
     else if (game.modeName === 'select') showSelect(game.selectAfter || 'title');
     else if (game.modeName === 'platformer' && modes.platformer.done) { const pl = modes.platformer; game.showComplete(pl.def, pl.collected.size, pl.def.buttons.length, { treats: pl.rests.treats, treatsTotal: pl.def.checkpoints.length - 1 }); }
+    else if (game.modeName === 'retro' && modes.retro.done) { const r = modes.retro; game.showComplete({ ...r.def, collectName: 'Stars' }, r.collected.size, r.totalStars, { treats: r.rests.treats, treatsTotal: r.restSpots.length }); }
     else game.paused = false;
   }
 }
@@ -301,13 +309,13 @@ game.ui.onAction = (act) => { game.audio.init(); if (game.busy) return; if (act 
 
 // ---------- Helpers for the automated tests (run the game faster than real time) ----------
 game.sim = function (seconds, keys = [], press = [], fps = 60) {
-  const n = Math.max(1, Math.round(seconds * fps));
+  const n = Math.max(1, Math.round(seconds * fps)); this.simulating = true;
   for (let i = 0; i < n; i++) {
     Input.down = new Set(keys); if (i === 0) press.forEach(k => Input.pressed.add(k));
     this.mode.update(1 / fps);
     Input.pressed.clear(); Input.drag.dx = Input.drag.dy = 0; Input.wheel.x = Input.wheel.y = Input.wheel.zoom = 0;
   }
-  Input.down = new Set();
+  Input.down = new Set(); this.simulating = false;
   return this.state();
 };
 game.state = function () {
@@ -323,6 +331,12 @@ game.state = function () {
     const pl = modes.platformer; const p = pl.p;
     s.p = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, onGround: p.onGround, climbing: p.climbing, diving: p.diving, floating: p.floating };
     s.checkpoint = pl.checkpoint; s.treats = pl.rests.treats; s.resting = !!pl.resting; s.timer = { on: pl.timer.enabled, started: pl.timer.started, t: pl.timer.t }; s.collected = pl.collected.size; s.done = pl.done; s.bridge = pl.bridgeOn; s.ball = !!pl.ball; s.player = pl.pc.kind;
+  }
+  if (this.modeName === 'retro') {
+    const r = modes.retro, p = r.p;
+    s.p = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, onGround: p.onGround, h: p.h, sliding: p.sliding, ducking: p.ducking, action: p.action, face: p.face };
+    s.anim = { name: r.anim.name, row: r.anim.row, col: r.anim.col }; s.stars = r.collected.size; s.totalStars = r.totalStars; s.gateOpen = r.gateOpen;
+    s.ball = { x: r.ball.x, y: r.ball.y }; s.done = r.done; s.treats = r.rests.treats; s.checkpoint = r.checkpoint.x; s.spriteReady = !!(r.constructor && window.__bbaSprite && window.__bbaSprite.ready);
   }
   s.saves = this.saves;
   return s;
@@ -340,13 +354,13 @@ function frame() {
   // Keys that work everywhere.
   if (Input.typed.endsWith(ADMIN_WORD)) { Input.typed = ''; showAdmin(); }
   if (Input.hit('KeyF')) { game.settings.showFps = !game.settings.showFps; game.saveSettings(); if (!game.settings.showFps) game.ui.fps(null); }
-  const playing = ['explore', 'platformer'].includes(game.modeName) && !game.busy;
+  const playing = PLAY_MODES.includes(game.modeName) && !game.busy;
   // Esc always means "go back" on any screen; during play with nothing open, it pauses.
   if (Input.hit('Escape') && !game.busy) { if (game.onEsc) game.onEsc(); else if (playing && !game.paused) pause(); }
   if (playing && Input.hit('KeyM')) { if (game.mapOpen) game.closeMap(); else if (!game.paused) showMap(); }
   if (game.mode) {
     game.mode.update(dt);
-    renderer.render(game.mode.scene, game.mode.camera);
+    if (!game.mode.is2d) renderer.render(game.mode.scene, game.mode.camera);
   }
   Input.endFrame();
   // Speed meter.
