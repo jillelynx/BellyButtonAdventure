@@ -223,25 +223,53 @@ export function buildLiev(choice) {
   // ---- Hair ----
   const hairParts = { top: [], fringe: [] };
   if (hairStyle === 'everyday') {
+    // Hair is built from many soft clumps that flow out from the crown, so the
+    // top looks tousled and layered instead of one smooth "bowl".
+    const clumpGeo = new THREE.SphereGeometry(1, 18, 12);
+    let hs = 91; const rnd = () => (hs = (hs * 16807) % 2147483647) / 2147483647;
+    const crown = surf(0.4, Math.PI, 0).normalize();
+    const addClump = (theta, lat, w, thick, len, out, lift = 0, list = hairParts.top) => {
+      const n = surf(theta, lat, 0).normalize();
+      const t = n.clone().sub(crown); t.sub(n.clone().multiplyScalar(t.dot(n)));
+      if (t.lengthSq() < 1e-6) t.set(0, 0, 1); t.normalize();
+      t.addScaledVector(n, lift).normalize();                 // lift > 0 makes the tip stick up
+      const x = new THREE.Vector3().crossVectors(n, t).normalize();
+      const y = new THREE.Vector3().crossVectors(t, x).normalize();
+      const m = new THREE.Mesh(clumpGeo, hairMat);
+      m.matrix.makeBasis(x, y, t).scale(new THREE.Vector3(w, thick, len));
+      m.matrix.setPosition(surf(theta, lat, out).addScaledVector(t, len * 0.45));
+      m.matrixAutoUpdate = false; m.castShadow = true; head.add(m); list.push(m); return m;
+    };
     if (!hat) {
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.014, 40, 20, 0, Math.PI * 2, 0, 1.3), hairMat);
-      cap.scale.set(1.0, 1.04, 1.03); cap.position.z = -0.006; head.add(shadow(cap)); hairParts.top.push(cap);
-      for (let i = 0; i < 4; i++) { // tousled crown tufts
-        const t = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.06, 8), hairMat);
-        const p = surf(0.42 + i * 0.12, Math.PI + (i - 1.5) * 0.35, 0.008); t.position.copy(p);
-        t.lookAt(p.clone().multiplyScalar(2)); t.rotateX(Math.PI / 2); head.add(t); hairParts.top.push(t);
+      // Thin base layer so no scalp shows between clumps.
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.006, 40, 20, 0, Math.PI * 2, 0, 1.32), hairMat);
+      cap.position.z = -0.004; head.add(shadow(cap)); hairParts.top.push(cap);
+      // Layered clumps over the whole top, back and sides.
+      for (let ring = 0; ring < 5; ring++) {
+        const theta = 0.25 + ring * 0.21, count = 7 + ring * 3;
+        for (let k = 0; k < count; k++) {
+          const lat = (k + rnd() * 0.6) / count * Math.PI * 2;
+          if (Math.cos(lat) > 0.55 && theta > 0.9) continue;   // the fringe covers the forehead
+          addClump(theta + (rnd() - 0.5) * 0.06, lat, 0.036 + rnd() * 0.01, 0.009 + rnd() * 0.003, 0.065 + rnd() * 0.02, 0.006 + ring * 0.001, (rnd() - 0.4) * 0.12);
+        }
       }
+      // A few pieces sticking up at the crown and back (like in the photos).
+      for (let i = 0; i < 3; i++) addClump(0.38 + rnd() * 0.15, Math.PI + (i - 1) * 0.45, 0.018, 0.008, 0.035 + rnd() * 0.012, 0.012, 0.55 + rnd() * 0.25);
     }
     // Full fringe of bangs down to the eyebrows.
     const th0 = hat ? 1.22 : 0.55, th1 = 1.3;
     const fr = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.017, 40, 10, Math.PI / 2 - 1.0, 2.0, th0, th1 - th0), hairMat);
     head.add(shadow(fr)); hairParts.fringe.push(fr);
-    for (let i = 0; i < 11; i++) { // choppy tips
-      const lat = -0.92 + i * 0.184;
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.019, 0.045, 6), hairMat);
-      const p = surf(1.3, lat, 0.013); tip.position.copy(p);
-      tip.lookAt(p.clone().multiplyScalar(2)); tip.rotateX(-Math.PI / 2 - 0.15); tip.position.y -= 0.012; head.add(tip); hairParts.fringe.push(tip);
+    for (let i = 0; i < 14; i++) { // choppy, uneven strands at the bottom of the bangs
+      const lat = -0.95 + i * 0.146 + (rnd() - 0.5) * 0.05;
+      const len = 0.03 + rnd() * 0.025;
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.017 + rnd() * 0.006, len, 6), hairMat);
+      const p = surf(1.27, lat, 0.014); tip.position.copy(p);
+      tip.lookAt(p.clone().multiplyScalar(2)); tip.rotateX(-Math.PI / 2 - 0.12); tip.rotateZ((rnd() - 0.5) * 0.35);
+      tip.position.y -= len * 0.3; head.add(tip); hairParts.fringe.push(tip);
     }
+    // Strands on top of the bangs so they look like hair, not a sheet.
+    if (!hat) for (let i = 0; i < 8; i++) addClump(0.72 + rnd() * 0.12, -0.7 + i * 0.2, 0.03, 0.008, 0.06, 0.016, -0.1, hairParts.fringe);
   } else if (!hat) {
     // Combed up with product: shiny volume on top, swept back.
     const shine = mat(new THREE.MeshPhysicalMaterial({ color: L.hair, roughness: 0.38, clearcoat: 0.5, clearcoatRoughness: 0.35 }));
