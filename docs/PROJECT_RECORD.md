@@ -1,5 +1,5 @@
 # Project Record — Belly Button Adventure
-*Living document. Re-read before new work. Last updated: 2026-10-21 (Milestone 2).*
+*Living document. Re-read before new work. Last updated: 2026-10-22 (Phase 1).*
 
 ## 1. Approved decisions (only things you said or clearly agreed to)
 | # | Decision | Source |
@@ -27,6 +27,13 @@
 | A21 | A hidden admin password to reach any part of the game for checking | Message, 2026-10-21 |
 | A22 | Milestone 2 characters are "okay for now"; **Liev's look needs more work later** | Message, 2026-10-21 |
 
+| A23 | Liev's head: animated-movie kid style, matching your reference picture (oval face, chin, almond eyes, small nose, closed smile, spiky tousled hair with shorter sides) | Messages, 2026-10-22 |
+| A24 | One or two platformer levels in **retro pixel-art style** (grassy dirt blocks, pixel trees, mountains, waterfall, pixel Liev) | Messages, 2026-10-22 |
+| A25 | Phase 1 (dead-end fixes, optional timer, menu colors, cozy rest spots, 3D sandbox plan) comes **before** West Cork | Answers, 2026-10-22 |
+| A26 | West Cork means the **Beara Peninsula** | Answers, 2026-10-22 |
+| A27 | Rest-spot reward = treats (cookie, honey, cocoa), counted separately from buttons | Answers, 2026-10-22 |
+| A28 | Main menu buttons: own colors + pictures (Play yellow ▶, Characters blue 🐻, Settings mint ⚙️, New adventure pink 🗺️); no extra Levels button for now | Answers, 2026-10-22 |
+
 ## 2. My suggestions, not yet approved
 | # | Suggestion |
 |---|---|
@@ -39,7 +46,10 @@
 | S8 | Captain's hat = grey-tan digital-camo patrol cap (like the cap in the photo) with two silver captain's bars |
 | S9 | Technical approach (FEASIBILITY.md): Three.js, no build step, `Play on my Mac.command` |
 | S12 | Admin secret word is `bigbutton` (change it in `src/admin.js`) |
-| S13 | Platformer collectibles are sewing buttons; checkpoint flags; falling = gentle return to the last flag (no lives) |
+| S13 | Platformer collectibles are sewing buttons; falling = gentle return to the last rest spot (no lives) |
+| S14 | First pixel-art level goes in West Cork |
+| S15 | 3D sandbox first version: Lost Buttons, Ring Race, Felt Bunny, secrets (docs/PHASE1_3D_PLAN.md) |
+| S16 | Picture signs instead of word signs in levels |
 
 ## 3. Open questions
 - **Q5.** What should change about Liev's look? (Accepted for now; to revisit.)
@@ -64,7 +74,14 @@
 - [x] Secret admin panel — *automated check passed*
 - [x] `Play on my Mac.command` — *needs your testing (I can't run a Mac here)*
 
-### Milestone 3 — First complete loop: West Cork
+### Phase 1 — Fixes, quick wins, 3D plan ✅ delivered 2026-10-22
+- [x] Dead-end audit: 5 found and fixed; Esc means "go back" on every screen — *automated checks passed*
+- [x] Optional race timer (off by default; starts on first move; best time per level; confetti + "New record!") — *automated checks passed*
+- [x] Main menu colors and pictures — *automated check + screenshot*
+- [x] Cozy rest spots (pillow fort, blanket nook, picnic): checkpoints + one treat each per run — *automated checks passed*
+- [x] 3D sandbox plan written (docs/PHASE1_3D_PLAN.md); shared progress code in src/progress.js
+
+### Milestone 3 — First complete loop: West Cork (Beara Peninsula)
 One real place fully built with landmarks (green fields, mountains, rocky beach, soccer pitch), 2 platformer levels, Treasure Stamps, hints, ambient sounds, autosave, gentle world edges.
 
 ### Milestone 4 — Expansion (one place at a time, each tested before the next)

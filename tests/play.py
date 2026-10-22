@@ -224,6 +224,72 @@ with sync_playwright() as pw:
     pg.click("#hud-right [data-act=map]"); pg.wait_for_timeout(300)
     check('HUD Map button responds to clicks', pg.query_selector('.map-box') is not None)
     pg.click("text=Close map")
+    # ================= PHASE 1 CHECKS =================
+    # Menu colors on the title screen.
+    ev("window.__bba.setMode('title')"); wait_mode('title'); pg.wait_for_timeout(800)
+    cols = ev("[...document.querySelectorAll('.title-wrap .btn')].map(b=>getComputedStyle(b).backgroundColor)")
+    check('Main menu buttons each have their own color', len(cols) >= 3 and len(set(cols)) == len(cols), str(cols))
+    icons = ev("document.querySelectorAll('.title-wrap .btn .ico').length")
+    check('Main menu buttons have pictures', icons == len(cols), f'{icons} icons')
+    shot('20_title_colors')
+    # Esc backs out of Settings on the title screen.
+    pg.click("text=Settings"); pg.wait_for_timeout(400); pg.keyboard.press('Escape'); pg.wait_for_timeout(1500)
+    check('Esc goes back from Settings to the title', pg.query_selector('.title-wrap') is not None)
+    # Character screen has a Go back button, and Esc works there.
+    ev("window.__bba.setMode('select',{mode:'select',after:'explore'})"); wait_mode('select'); pg.wait_for_timeout(600)
+    check('Character screen has a Go back button', pg.query_selector("button:has-text('Go back')") is not None)
+    shot('21_select_goback')
+    # Admin panel opened and closed on the character screen keeps its buttons.
+    pg.keyboard.type('bigbutton'); pg.wait_for_timeout(2500)
+    opened = pg.query_selector('.admin') is not None
+    pg.click(".admin [data-act=close]"); pg.wait_for_timeout(600)
+    check('Closing admin on the character screen brings its buttons back', opened and pg.query_selector("button:has-text(\"Let's go!\")") is not None)
+    pg.click("button:has-text('Go back')"); check('Go back returns to the title', wait_mode('title'))
+    # Map opened from the pause menu returns to the pause menu.
+    ev("window.__bba.setMode('explore',{area:'bbworld'})"); wait_mode('explore'); pg.wait_for_timeout(800)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(1500); pg.click(".panel [data-act=map]"); pg.wait_for_timeout(500)
+    pg.click("text=Close map"); pg.wait_for_timeout(400)
+    check('Closing the map from the pause menu returns to the pause menu', pg.query_selector("text=Paused") is not None)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(1500)
+    check('Esc closes the pause menu', not ev("window.__bba.paused"))
+    # A mode switch that breaks never leaves a blank screen.
+    ev("(()=>{const g=window.__bba; const orig=g.modes.platformer.enter; g.modes.platformer.enter=()=>{ g.modes.platformer.enter=orig; throw new Error('test break'); }; g.setMode('platformer',{level:'bbw-door1'});})()")
+    pg.wait_for_timeout(3000)
+    check('If switching modes breaks, the game goes safely back to the title', ev("window.__bba.modeName") == 'title' and pg.query_selector('.title-wrap') is not None and ev("getComputedStyle(document.querySelector('#fade')).opacity") == '0')
+    errors[:] = [e for e in errors if 'test break' not in e]
+
+    # Timer: off by default; when on, starts only on the first move.
+    check('Timer is off by default', ev("window.__bba.settings.timer") is False)
+    ev("(()=>{const g=window.__bba; g.settings.timer=true; g.choice.player='liev'; g.setMode('platformer',{level:'bbw-door1',returnTo:{area:'bbworld'}});})()"); wait_mode('platformer'); pg.wait_for_timeout(800)
+    s = sim(1.0)
+    check('Timer waits for the first move', s['timer']['on'] and not s['timer']['started'] and s['timer']['t'] == 0)
+    s = sim(0.5, ['ArrowRight'])
+    check('Timer starts when you move', s['timer']['started'] and s['timer']['t'] > 0.3, f"{s['timer']['t']:.2f}s")
+    shot('22_timer_on')
+    # Rest spot: stand still on it to rest and get a treat, only once per run.
+    ev("(()=>{const pl=window.__bba.modes.platformer; pl.p.x=30; pl.p.y=4; pl.p.vx=0; pl.p.vy=0;})()")
+    s = sim(0.3)
+    cp = s['checkpoint']
+    s = sim(2.5)
+    check('Resting on a rest spot gives a treat', s['treats'] == 1, f"treats={s['treats']}")
+    check('The rest spot is also a checkpoint', cp == 1, f'checkpoint={cp}')
+    s = sim(3.0)
+    check('Each rest spot works only once per run', s['treats'] == 1, f"treats={s['treats']}")
+    ev("(()=>{const pl=window.__bba.modes.platformer; pl.camPos.set(31,6.5,10.5); pl.camLook.set(31,5,0);})()"); sim(0.3); pg.wait_for_timeout(400); shot('23_rest_spot')
+    # Falling into a pit puts you back at the last rest spot.
+    ev("(()=>{const pl=window.__bba.modes.platformer; pl.p.x=27.5; pl.p.y=4.5; pl.p.vy=0;})()")
+    s = sim(1.5)
+    check('Falling returns you to the last rest spot', abs(s['p']['x'] - 30) < 0.5, f"x={s['p']['x']:.1f}")
+    # Finish with the timer on: best time saved and celebrated.
+    r = ev(f"({BOT})('liev')")
+    s = state()
+    best = ev("JSON.parse(localStorage.getItem('bba.records')||'{}')")
+    check('With the timer on, finishing saves a best time', r['done'] and 'bbw-door1' in best.get('bestTimes', {}), str(best))
+    pg.wait_for_timeout(800)
+    check('A new best time shows a celebration', pg.query_selector('.record') is not None)
+    shot('24_new_record')
+    pg.keyboard.press('Escape'); check('Esc on the end-of-level screen goes back to the world', wait_mode('explore'))
+    ev("window.__bba.settings.timer=false; window.__bba.saveSettings()")
     fps = ev("window.__bba.fpsNow")
     print(f"(Test-browser speed: {fps:.1f} fps in software drawing mode — NOT a measure of your Mac.)")
     b.close()

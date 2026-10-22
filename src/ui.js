@@ -17,6 +17,8 @@ export class UI {
       <div id="arrow" class="hidden"><div>➜</div></div>
       <div id="toast" class="hidden"></div>
       <div id="fps" class="hidden"></div>
+      <div id="timer" class="hidden"></div>
+      <div id="confetti"></div>
       <div id="screen"></div>
       <div id="fade"></div>`;
     this.el = (id) => root.querySelector('#' + id);
@@ -38,6 +40,12 @@ export class UI {
   toast(text, secs = 3.5) { const t = this.el('toast'); t.innerHTML = text; t.classList.remove('hidden'); this.toastT = secs; }
   edge(text) { const e = this.el('edge'); if (!text) { e.classList.add('hidden'); return; } e.textContent = text; e.classList.remove('hidden'); }
   arrow(angle, text, secs = 4) { const a = this.el('arrow'); a.firstElementChild.style.transform = `rotate(${angle - Math.PI / 2}rad)`; a.classList.remove('hidden'); this.arrowT = secs; if (text) this.toast(text, secs); }
+  timer(html) { const t = this.el('timer'); if (html == null) { t.classList.add('hidden'); return; } t.innerHTML = html; t.classList.remove('hidden'); }
+  confetti(n = 80) {
+    const box = this.el('confetti'); const cols = ['#F2A7B5', '#FFD34D', '#7FB3E0', '#9BE0B5', '#C8473D', '#C9B3EF'];
+    for (let i = 0; i < n; i++) { const d = document.createElement('i'); d.style.left = Math.random() * 100 + 'vw'; d.style.background = cols[i % cols.length]; d.style.animationDelay = Math.random() * 0.6 + 's'; d.style.animationDuration = 1.8 + Math.random() * 1.4 + 's'; d.style.transform = `rotate(${Math.random() * 360}deg)`; box.appendChild(d); }
+    setTimeout(() => { box.innerHTML = ''; }, 3800);
+  }
   fps(text) { const f = this.el('fps'); if (text === null) f.classList.add('hidden'); else { f.classList.remove('hidden'); f.textContent = text; } }
   fade(to, secs = 0.5, color = '#FFF8EC') {
     const f = this.el('fade'); f.style.background = color; f.style.transition = `opacity ${secs}s ease`; f.style.opacity = to;

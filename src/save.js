@@ -3,7 +3,7 @@
 // separate save slots.
 const PREFIX = 'bba.';
 export const DEFAULTS = {
-  settings: { music: 0.5, effects: 0.8, ambience: 0.5, camSpeed: 1, wheel: 'orbit', quality: 'high', showFps: false },
+  settings: { music: 0.5, effects: 0.8, ambience: 0.5, camSpeed: 1, wheel: 'orbit', quality: 'high', showFps: false, timer: false },
   look: null, // filled from DEFAULT_CHOICE
   explore: { area: 'bedroom', pos: null, yaw: Math.PI, unlocked: { bbworld: false }, doorsFound: [], started: false },
   platformer: { levels: {}, stamps: [] },

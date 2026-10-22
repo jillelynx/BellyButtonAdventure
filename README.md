@@ -18,6 +18,9 @@ An original adventure game starring Belly Button the plush bear and his best fri
 | Zoom | pinch, or + / − | — |
 | Map / Hint / Menu | M / H / Esc | M / H / Esc |
 | Speed meter | F | F |
+| Rest at a cozy spot | — | stand still on it (once per spot, gives a treat) |
+| Race timer | — | turn on in Settings (off by default) |
+| Go back / pause | Esc | Esc |
 
 ## Project files
 - Story and design: `docs/CONCEPT.md` · Look: `docs/VISUAL_DIRECTION.md` · Tech plan: `docs/FEASIBILITY.md`

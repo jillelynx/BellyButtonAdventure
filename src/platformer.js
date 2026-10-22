@@ -5,6 +5,7 @@ import { LEVELS } from './levels.js';
 import { buildCharacter, friendOf } from './characters/index.js';
 import { felt, stitchStrip, gradient, buttonFace, paperSign, soccerBall, plushDash, makeCanvas, toTexture } from './textures.js';
 import { clamp, damp, dampAngle, rng } from './util.js';
+import { Records, RunTimer, RestTracker, formatTime } from './progress.js';
 
 const G = 30, JUMP_V = 11, RUN = 6.5, SPRINT = 8.5, FLOAT_FALL = 2.2, DIVE_V = 16, CUSHION_BOUNCE = 12, BELLY_BOUNCE = 18.5;
 const DEPTH = 3; // how deep the felt blocks are (toward / away from camera)
@@ -24,17 +25,23 @@ export class Platformer {
     const d = this.def;
     this.p = { x: d.start[0], y: d.start[1], vx: 0, vy: 0, onGround: true, face: 1, coyote: 0, buffer: 0, diving: false, floating: false, climbing: false, kickCd: 0, hw: this.pc.kind === 'liev' ? 0.24 : 0.22, h: this.pc.height * 0.97, inv: 0 };
     this.checkpoint = 0; this.collected = new Set(); this.bridgeOn = false; this.done = false; this.ball = null; this.time = 0;
+    this.timer = new RunTimer(!!this.g.settings.timer); this.rests = new RestTracker(); this.resting = null; this.restHold = 0; this.treatFx = [];
     this.friendCp = 0; this.placeFriend(0);
     if (opts.checkpoint) { const cp = d.checkpoints[opts.checkpoint]; this.checkpoint = opts.checkpoint; this.p.x = cp[0]; this.p.y = cp[1]; this.placeFriend(opts.checkpoint); }
     this.camPos = new THREE.Vector3(this.p.x + 2, this.p.y + 2.9, 10.5); this.camLook = new THREE.Vector3(this.p.x + 2, this.p.y + 1.4, 0);
     this.g.audio.music('platformer'); this.g.audio.ambience('outdoor');
     this.updateHud();
   }
-  exit() { if (this.scene) this.dispose(); this.g.ui.prompt(null); }
+  exit() { if (this.scene) this.dispose(); this.g.ui.prompt(null); this.g.ui.timer(null); }
   dispose() {
     for (const c of [this.pc, this.fc]) if (c) c.dispose();
     this.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); });
     this.scene = null;
+  }
+  showTimer() {
+    if (!this.timer.enabled) { this.g.ui.timer(null); return; }
+    const best = Records.bestTime(this.levelId);
+    this.g.ui.timer(`⏱ ${formatTime(this.timer.t)}${best != null ? ` &nbsp;<small>best ${formatTime(best)}</small>` : ''}`);
   }
   helpText() {
     const liev = this.pc.kind === 'liev';
@@ -42,8 +49,9 @@ export class Platformer {
     return `<span class="key">← →</span> move · <span class="key">Space</span> jump · <span class="key">Shift</span> run · ${moves}`;
   }
   updateHud() {
-    const n = this.def.buttons.length;
-    this.g.ui.hud(true, `${this.def.name} &nbsp;·&nbsp; Buttons ${this.collected.size} / ${n}`, this.helpText());
+    const n = this.def.buttons.length, nr = this.def.checkpoints.length - 1;
+    this.g.ui.hud(true, `${this.def.name} &nbsp;·&nbsp; 🔘 ${this.collected.size} / ${n} &nbsp;·&nbsp; 🍪 ${this.rests.treats} / ${nr}`, this.helpText());
+    if (this.timer) { this.timer.enabled = !!this.g.settings.timer; this.showTimer(); }
   }
 
   // ---------- Building the level ----------
@@ -146,14 +154,33 @@ export class Platformer {
       const m = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.07, 24), [std(cols[i % 5]), new THREE.MeshStandardMaterial({ map: buttonFace(cols[i % 5]), roughness: 0.4 }), new THREE.MeshStandardMaterial({ map: buttonFace(cols[i % 5]), roughness: 0.4 })]);
       m.rotation.x = Math.PI / 2; m.position.set(x, y, 0); m.castShadow = true; scene.add(m); return m;
     });
-    // Checkpoint flags.
-    this.flags = d.checkpoints.map(([x, y], i) => {
+    // Cozy rest spots (they are also the checkpoints). Unused ones show a floating "zzz" and sparkles.
+    const REST_KINDS = ['pillowfort', 'blanket', 'picnic'];
+    const zTex = (() => { const [c, g] = makeCanvas(128, 128); g.fillStyle = '#FFF8EC'; g.beginPath(); g.arc(64, 64, 58, 0, 7); g.fill(); g.lineWidth = 6; g.strokeStyle = '#3A3D45'; g.stroke();
+      g.fillStyle = '#7FB3E0'; g.font = 'bold 54px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('z', 44, 74); g.font = 'bold 38px "Arial Black", Arial'; g.fillText('z', 76, 52); g.font = 'bold 26px "Arial Black", Arial'; g.fillText('z', 98, 34); return toTexture(c, { wrap: false }); })();
+    const checker = (() => { const [c, g] = makeCanvas(128, 128); for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = (x + y) % 2 ? '#C8473D' : '#FFF8EC'; g.fillRect(x * 16, y * 16, 16, 16); } return toTexture(c); })();
+    this.restSpots = d.checkpoints.map(([x, y], i) => {
       if (i === 0) return null;
-      const g = new THREE.Group(); g.position.set(x, y, -0.9);
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.8, 8), std('#F3EAD8')); pole.position.y = 0.9; g.add(pole);
-      const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.4), new THREE.MeshStandardMaterial({ color: '#B9B9B9', side: THREE.DoubleSide })); flag.position.set(0.32, 1.55, 0); g.add(flag);
-      scene.add(g); return { g, flag };
+      const kind = REST_KINDS[(i - 1) % 3];
+      const g = new THREE.Group(); g.position.set(x, y, -0.75);
+      if (kind === 'pillowfort') {
+        for (const [px, c] of [[-0.45, '#CFE0F5'], [0.45, '#F2C9D2']]) { const pl = shadowy(new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), plush(c))); pl.scale.set(0.42, 0.55, 0.3); pl.position.set(px, 0.5, 0); pl.rotation.z = px > 0 ? -0.35 : 0.35; g.add(pl); }
+        const roof = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 1.1, 24, 1, true, -Math.PI / 2, Math.PI), plush('#F6E3B4'))); roof.material.side = THREE.DoubleSide; roof.rotation.x = Math.PI / 2; roof.position.y = 0.55; roof.scale.set(1, 1, 0.9); g.add(roof);
+      } else if (kind === 'blanket') {
+        const arch = shadowy(new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.06, 8, 24, Math.PI), std('#B07A4A'))); arch.position.y = 0.05; g.add(arch);
+        const cloth = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.9, 24, 1, true, -Math.PI / 2, Math.PI), plush('#FFD98A'))); cloth.material.side = THREE.DoubleSide; cloth.rotation.x = Math.PI / 2; cloth.position.set(0, 0.05, -0.1); g.add(cloth);
+        const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), new THREE.MeshStandardMaterial({ color: '#FFE7B0', emissive: '#FFC46B', emissiveIntensity: 1.4 })); lamp.position.set(0.5, 0.12, 0.35); g.add(lamp);
+      } else {
+        const mat2 = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.0), new THREE.MeshStandardMaterial({ map: checker, roughness: 1 })); mat2.rotation.x = -Math.PI / 2; mat2.position.y = 0.02; mat2.receiveShadow = true; g.add(mat2);
+        const basket = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.2, 0.3, 14), std('#B07A4A'))); basket.position.set(-0.35, 0.17, -0.1); g.add(basket);
+        const handle = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 6, 16, Math.PI), std('#8C5A30')); handle.position.set(-0.35, 0.32, -0.1); g.add(handle);
+        const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 18), std('#FFFFFF')); plate.position.set(0.35, 0.04, 0.1); g.add(plate);
+      }
+      const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: zTex, transparent: true, depthWrite: false })); bubble.scale.set(0.7, 0.7, 1); bubble.position.set(0, 1.75, 0.3); g.add(bubble);
+      const glow = new THREE.PointLight('#FFD98A', 2.5, 3.5, 1.6); glow.position.set(0, 0.8, 0.6); g.add(glow);
+      scene.add(g); return { g, kind, bubble, glow, x, y };
     });
+    this.flags = this.restSpots; // older code refers to checkpoints as "flags"
     // Signs.
     for (const s of d.signs) {
       const g = new THREE.Group(); g.position.set(s.x, s.y, -1.05);
@@ -176,7 +203,7 @@ export class Platformer {
 
   placeFriend(i) {
     const cp = this.def.checkpoints[i]; this.friendCp = i;
-    this.fc.root.position.set(cp[0] + (i === 0 ? -1.2 : 0.9), cp[1], -0.9);
+    this.fc.root.position.set(cp[0] + (i === 0 ? -1.2 : 1.35), cp[1], -0.9);
     this.fcBase = this.fc.root.position.clone();
   }
   poof(x, y, z = 0) {
@@ -254,7 +281,12 @@ export class Platformer {
 
   updatePlayer(dt) {
     const p = this.p, d = this.def, liev = this.pc.kind === 'liev', a = this.g.audio;
+    // Resting at a cozy spot: a short, cute pause, then a treat.
+    if (this.resting) { this.updateRest(dt); return; }
     const ax = Input.axis();
+    // The race timer starts on the first move, not when the level loads.
+    if (ax.x || ax.y || Input.hit('Space', 'KeyX', 'KeyK', 'ArrowDown', 'KeyS')) this.timer.start();
+    this.timer.tick(dt);
     const max = Input.key('ShiftLeft', 'ShiftRight') ? SPRINT : RUN;
     const target = ax.x * max;
     p.vx = damp(p.vx, target, p.onGround ? 16 : 7, dt);
@@ -311,10 +343,14 @@ export class Platformer {
     d.checkpoints.forEach(([cx, cy], i) => {
       if (i > this.checkpoint && p.x >= cx - 0.3 && p.y >= cy - 0.5) {
         this.checkpoint = i; a.sfx('found');
-        if (this.flags[i]) this.flags[i].flag.material.color.set('#F2A7B5');
+        
         this.poof(this.fc.root.position.x, this.fc.root.position.y + 0.6, -0.9); this.placeFriend(i); this.poof(this.fc.root.position.x, this.fc.root.position.y + 0.6, -0.9);
       }
     });
+    // Standing still on a rest spot starts a rest (once per spot per run).
+    const spot = this.restSpots.findIndex(r => r && this.rests.canRest(this.restSpots.indexOf(r)) && Math.abs(p.x - r.x) < 0.85 && Math.abs(p.y - r.y) < 0.1);
+    if (spot > 0 && p.onGround && Math.abs(p.vx) < 0.4 && !ax.x) { this.restHold += dt; if (this.restHold > 0.6) { this.resting = { i: spot, t: 0, given: false }; this.restHold = 0; p.vx = 0; a.sfx('ui'); } }
+    else this.restHold = 0;
     // Buttons.
     const cy = p.y + p.h / 2;
     d.buttons.forEach(([bx, by], i) => {
@@ -332,7 +368,13 @@ export class Platformer {
     this.stamp.rotation.y = t * 1.6; this.stamp.position.y = this.def.stamp[1] + Math.sin(t * 2) * 0.12;
     this.cushionSquish = damp(this.cushionSquish || 0, 0, 6, dt);
     this.cushionMesh.scale.y = this.def.cushion.h * (1 - this.cushionSquish * 0.45);
-    for (const f of this.flags) if (f) f.flag.rotation.y = Math.sin(t * 3) * 0.3;
+    for (const [i, r] of this.restSpots.entries()) if (r) {
+      const unused = this.rests.canRest(i);
+      r.bubble.visible = unused; r.bubble.position.y = 1.75 + Math.sin(t * 2 + i) * 0.1;
+      r.glow.intensity = unused ? 2 + Math.sin(t * 3 + i) : 0;
+    }
+    for (let i = this.treatFx.length - 1; i >= 0; i--) { const f = this.treatFx[i]; f.t += dt; f.m.position.y = f.y0 + Math.sin(Math.min(1, f.t) * Math.PI) * 1.2 + f.t * 0.3; f.m.rotation.y += dt * 5; if (f.t > 1.1) { this.scene.remove(f.m); this.treatFx.splice(i, 1); } }
+    if (this.timer && this.timer.started && Math.floor(t * 10) !== this._lastTimerTick) { this._lastTimerTick = Math.floor(t * 10); this.showTimer(); }
     if (this.bridgeOn && this.bridge.scale.y < 1) this.bridge.scale.y = Math.min(1, this.bridge.scale.y + dt * 3);
     // Ball physics.
     const b = this.ball;
@@ -358,16 +400,48 @@ export class Platformer {
     }
   }
 
+  updateRest(dt) {
+    const r = this.resting, p = this.p, spot = this.restSpots[r.i];
+    r.t += dt; p.vx = 0;
+    if (Math.floor(r.t / 0.45) !== Math.floor((r.t - dt) / 0.45)) this.pc.land(0.5); // sleepy breathing
+    this.timer.tick(dt);
+    if (r.t > 1.0 && !r.given) {
+      r.given = true;
+      if (this.rests.rest(r.i)) {
+        const kind = spot.kind, m = this.makeTreat(kind);
+        m.position.set(spot.x, spot.y + 0.6, 0.4); this.scene.add(m); this.treatFx.push({ m, t: 0, y0: spot.y + 0.6 });
+        this.g.audio.sfx('collect'); this.g.ui.toast(kind === 'picnic' ? '🍪 Yum, a cookie!' : kind === 'blanket' ? '🍯 Yum, honey!' : '☕ Yum, cocoa!', 1.8);
+        this.updateHud();
+      }
+    }
+    if (r.t > 1.6) this.resting = null;
+  }
+  makeTreat(kind) {
+    const g = new THREE.Group();
+    const m = (c, e = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, ...e });
+    if (kind === 'picnic') { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.07, 20), m('#D9A35B')); c.rotation.x = Math.PI / 2; g.add(c); for (let i = 0; i < 5; i++) { const ch = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 5), m('#5A3A22')); ch.position.set(Math.cos(i * 1.3) * 0.12, Math.sin(i * 1.3) * 0.12, 0.04); g.add(ch); } }
+    else if (kind === 'blanket') { const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.3, 16), m('#F2B830', { emissive: '#7A5000', emissiveIntensity: 0.3 })); g.add(jar); const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.06, 16), m('#C8473D')); lid.position.y = 0.17; g.add(lid); }
+    else { const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.28, 16), m('#FFFFFF')); g.add(mug); const top = new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), m('#7A4A2A')); top.rotation.x = -Math.PI / 2; top.position.y = 0.141; g.add(top); const h = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.025, 6, 12), m('#FFFFFF')); h.position.x = 0.19; g.add(h); }
+    return g;
+  }
+
   complete() {
     if (this.done) return;
     this.done = true; this.stamp.visible = false;
     const ps = this.g.saves.platformer;
     const prev = ps.levels[this.levelId] || {};
-    ps.levels[this.levelId] = { done: true, buttons: Math.max(prev.buttons || 0, this.collected.size), total: this.def.buttons.length };
+    ps.levels[this.levelId] = { done: true, buttons: Math.max(prev.buttons || 0, this.collected.size), total: this.def.buttons.length, treats: Math.max(prev.treats || 0, this.rests.treats) };
+    Records.submitTreats(this.levelId, this.rests.treats);
+    let timeInfo = null;
+    if (this.timer.enabled && this.timer.started) {
+      const old = Records.bestTime(this.levelId), t = this.timer.stop();
+      timeInfo = { t, old, record: Records.submitTime(this.levelId, t) };
+      this.showTimer();
+    }
     if (!ps.stamps.includes(this.levelId)) ps.stamps.push(this.levelId);
     this.g.writeSave('platformer');
     this.g.audio.sfx('stamp');
     this.g.ui.prompt(null);
-    this.g.showComplete(this.def, this.collected.size, this.def.buttons.length);
+    this.g.showComplete(this.def, this.collected.size, this.def.buttons.length, { treats: this.rests.treats, treatsTotal: this.def.checkpoints.length - 1, time: timeInfo });
   }
 }

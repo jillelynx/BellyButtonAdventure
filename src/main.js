@@ -12,6 +12,7 @@ import { LEVELS } from './levels.js';
 import { PLACES, drawAdventureMap } from './mapdraw.js';
 import { DOOR1 } from './areas/bbworld.js';
 import { ADMIN_WORD } from './admin.js';
+import { Records, formatTime } from './progress.js';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -30,6 +31,8 @@ const game = {
   saveSettings() { Save.write('settings', this.settings); },
 };
 window.__bba = game; // used by the automated tests
+// Whenever a menu closes, Esc stops pointing at it (so Esc never does something stale).
+{ const close = game.ui.closePanel.bind(game.ui); game.ui.closePanel = () => { close(); game.onEsc = null; game.mapOpen = false; }; }
 Input.init(canvas);
 Input.wheelMode = game.settings.wheel;
 game.audio.setVolumes(game.settings);
@@ -52,14 +55,21 @@ applyQuality();
 // ---------- Switching modes ----------
 game.setMode = async function (name, opts = {}) {
   if (this.busy) return; this.busy = true;
-  if (this.mode) await this.ui.fade(1, 0.3);
-  this.ui.closePanel(); this.paused = false;
-  if (this.mode && this.mode.exit) this.mode.exit();
-  this.modeName = name; this.mode = modes[name];
-  this.mode.enter(opts);
-  if (name === 'title') showTitle(); else if (name === 'select') showSelect(opts.after);
-  this.busy = false;
-  await this.ui.fade(0, 0.45);
+  try {
+    if (this.mode) await this.ui.fade(1, 0.3);
+    this.ui.closePanel(); this.paused = false; this.onEsc = null;
+    if (this.mode && this.mode.exit) this.mode.exit();
+    this.modeName = name; this.mode = modes[name];
+    this.mode.enter(opts);
+    if (name === 'title') showTitle(); else if (name === 'select') showSelect(opts.after);
+  } catch (err) {
+    // Never leave the player stuck on a blank screen: go back to the start screen.
+    console.error(err);
+    try { this.modeName = 'title'; this.mode = modes.title; modes.title.enter({}); showTitle(); this.ui.toast('Oops! Something went wrong, so we went back to the start screen.', 4); } catch (_) { /* ignore */ }
+  } finally {
+    this.busy = false;
+    await this.ui.fade(0, 0.45);
+  }
 };
 game.enterDoor = function (levelId, returnTo) {
   this.audio.sfx('door');
@@ -91,16 +101,17 @@ function wire(root, handlers) {
 }
 
 function showTitle() {
+  game.onEsc = null;
   const s = game.saves.explore;
   const has = s.started;
   const root = game.ui.bare(`
     <div class="title-wrap">
       <div style="text-align:center"><h1 class="title">Belly Button Adventure</h1><div class="subtitle">starring Liev &amp; Belly Button</div></div>
       <div class="row">
-        <button class="btn big go" data-act="play">${has ? 'Keep playing' : 'Play'}</button>
-        ${has ? '<button class="btn" data-act="new">New adventure</button>' : ''}
-        <button class="btn" data-act="chars">Characters</button>
-        <button class="btn" data-act="settings">Settings</button>
+        <button class="btn big menu-play" data-act="play"><span class="ico">▶</span>${has ? 'Keep playing' : 'Play'}</button>
+        ${has ? '<button class="btn menu-new" data-act="new"><span class="ico">🗺️</span>New adventure</button>' : ''}
+        <button class="btn menu-chars" data-act="chars"><span class="ico">🐻</span>Characters</button>
+        <button class="btn menu-settings" data-act="settings"><span class="ico">⚙️</span>Settings</button>
       </div>
     </div>`);
   wire(root, {
@@ -114,6 +125,7 @@ function showTitle() {
 function confirmNew() {
   const p = game.ui.panel(`<h2>Start a new adventure?</h2><p>This clears the map, doors and stamps.<br>Your character choices stay.</p>
     <div class="row"><button class="btn go" data-act="yes">Yes, start over</button><button class="btn" data-act="no">No, go back</button></div>`);
+  game.onEsc = () => showTitle();
   wire(p, {
     yes: () => { resetProgress(); game.ui.closePanel(); game.setMode('select', { mode: 'select', after: 'explore' }); },
     no: () => showTitle(),
@@ -121,11 +133,12 @@ function confirmNew() {
 }
 function resetProgress() {
   game.saves.explore = JSON.parse(JSON.stringify(DEFAULTS.explore)); game.saves.platformer = JSON.parse(JSON.stringify(DEFAULTS.platformer));
-  game.writeSave('explore'); game.writeSave('platformer');
+  game.writeSave('explore'); game.writeSave('platformer'); Records.clear();
   modes.explore.areas = {}; modes.explore.area = null;
 }
 
 function showSelect(after = 'explore') {
+  game.selectAfter = after;
   const ch = game.choice, liev = ch.player === 'liev';
   const opt = (group, val, label) => `<button class="btn ${ch[group] === val ? 'sel' : ''}" data-act="set" data-g="${group}" data-v="${val}">${label}</button>`;
   const root = game.ui.bare(`
@@ -141,7 +154,7 @@ function showSelect(after = 'explore') {
         <p style="font-size:17px;margin-top:12px">Your friend comes along too. Drag to spin around.</p>
       </div>
       <div class="select-name">${liev ? 'Liev' : 'Belly Button'}</div>
-      <div class="select-go"><button class="btn big go" data-act="go">${after === 'title' ? 'Done' : "Let's go!"}</button></div>
+      <div class="select-go">${after === 'title' ? '' : '<button class="btn" data-act="back">⬅ Go back</button>'}<button class="btn big go" data-act="go">${after === 'title' ? 'Done' : "Let's go!"}</button></div>
     </div>`);
   wire(root, {
     set: (b) => { ch[b.dataset.g] = b.dataset.v; game.saveLook(); modes.title.rebuild(); showSelect(after); },
@@ -151,7 +164,14 @@ function showSelect(after = 'explore') {
       else if (after === 'resume' && game.resumeTo) { const r = game.resumeTo; game.resumeTo = null; game.setMode(r.mode, r.opts); }
       else game.setMode('explore');
     },
+    back: () => selectBack(after),
   });
+  game.onEsc = () => selectBack(after);
+}
+// "Go back" from the character screen: return to where you came from.
+function selectBack(after) {
+  if (after === 'resume' && game.resumeTo) { const r = game.resumeTo; game.resumeTo = null; game.setMode(r.mode, r.opts); }
+  else game.setMode('title');
 }
 
 function pause() {
@@ -166,14 +186,15 @@ function pause() {
     <button class="btn" data-act="menu">Main menu</button></div>`);
   wire(p, {
     resume: () => resume(),
-    map: () => showMap(),
+    map: () => showMap(true),
     leave: () => game.leaveLevel(),
     chars: () => { modes.explore.saveNow(); game.resumeTo = { mode: 'explore', opts: {} }; game.setMode('select', { mode: 'select', after: 'resume' }); },
     settings: () => showSettings(() => pause()),
     menu: () => { if (game.modeName === 'explore') modes.explore.saveNow(); game.setMode('title'); },
   });
+  game.onEsc = () => resume();
 }
-function resume() { game.ui.closePanel(); game.paused = false; }
+function resume() { game.ui.closePanel(); game.paused = false; game.onEsc = null; game.mapOpen = false; }
 
 function showSettings(back) {
   const st = game.settings;
@@ -183,6 +204,7 @@ function showSettings(back) {
     <div class="setting"><span>Camera speed</span><input type="range" min="0.3" max="2" step="0.1" value="${st.camSpeed}" data-k="camSpeed"></div>
     <div class="setting"><span>Two-finger swipe / scroll wheel</span><span><button class="btn small ${st.wheel === 'orbit' ? 'sel' : ''}" data-act="wheel" data-v="orbit">Turns camera</button><button class="btn small ${st.wheel === 'zoom' ? 'sel' : ''}" data-act="wheel" data-v="zoom">Zooms</button></span></div>
     <div class="setting"><span>Graphics</span><span><button class="btn small ${st.quality !== 'low' ? 'sel' : ''}" data-act="q" data-v="high">Pretty</button><button class="btn small ${st.quality === 'low' ? 'sel' : ''}" data-act="q" data-v="low">Fast</button></span></div>
+    <div class="setting"><span>⏱ Race timer in levels</span><span><button class="btn small ${st.timer ? 'sel' : ''}" data-act="timer">${st.timer ? 'On' : 'Off'}</button></span></div>
     <div class="setting"><span>Speed meter (or press F)</span><span><button class="btn small ${st.showFps ? 'sel' : ''}" data-act="fps">${st.showFps ? 'On' : 'Off'}</button></span></div>
     <p style="font-size:17px">Pinch on the trackpad (or press + / −) to zoom. Q / R also turn the camera.</p>
     <button class="btn go" data-act="back">Back</button>`);
@@ -193,13 +215,15 @@ function showSettings(back) {
     wheel: (b) => { st.wheel = b.dataset.v; Input.wheelMode = st.wheel; game.saveSettings(); showSettings(back); },
     q: (b) => { st.quality = b.dataset.v; game.saveSettings(); applyQuality(); showSettings(back); },
     fps: () => { st.showFps = !st.showFps; game.saveSettings(); if (!st.showFps) game.ui.fps(null); showSettings(back); },
+    timer: () => { st.timer = !st.timer; game.saveSettings(); if (game.modeName === 'platformer') modes.platformer.updateHud(); showSettings(back); },
     back: () => back(),
   });
+  game.onEsc = () => back();
 }
 
-function showMap() {
+function showMap(fromPause = false) {
   if (!['explore', 'platformer'].includes(game.modeName)) return;
-  game.paused = true; game.ui.prompt(null); game.audio.sfx('paper');
+  game.paused = true; game.mapOpen = true; game.ui.prompt(null); game.audio.sfx('paper');
   const s = game.saves.explore, ps = game.saves.platformer;
   const doors = [];
   if (s.doorsFound.includes(DOOR1.id)) doors.push({ id: DOOR1.id, name: DOOR1.name, place: "Belly Button's World", stamp: ps.stamps.includes(DOOR1.id) });
@@ -215,14 +239,20 @@ function showMap() {
   wire(p, {
     go: (b) => game.travel(b.dataset.id),
     locked: (b) => { const pl = PLACES.find(x => x.id === b.dataset.id); game.ui.toast(pl.next ? `${pl.name} is coming in the next update!` : `${pl.name} hasn't been discovered yet.`, 2.5); },
-    close: () => resume(),
+    close: () => closeMap(),
   });
+  const closeMap = () => { game.mapOpen = false; if (fromPause) pause(); else resume(); };
+  game.onEsc = closeMap; game.closeMap = closeMap;
 }
 
-game.showComplete = function (def, got, total) {
-  const p = game.ui.panel(`<h1>⭐ Treasure Stamp! ⭐</h1><p><b>${esc(def.name)}</b> is complete!</p><p>Buttons collected: <b>${got} / ${total}</b></p>
+game.showComplete = function (def, got, total, extra = {}) {
+  const tm = extra.time;
+  const timeHtml = tm ? (tm.record ? `<div class="record">🏆 New record! ${formatTime(tm.t)}</div>${tm.old != null ? `<p>Old best: ${formatTime(tm.old)}</p>` : ''}` : `<p>⏱ Time: <b>${formatTime(tm.t)}</b> &nbsp; (best ${formatTime(tm.old)})</p>`) : '';
+  if (tm && tm.record) game.ui.confetti();
+  const p = game.ui.panel(`<h1>⭐ Treasure Stamp! ⭐</h1><p><b>${esc(def.name)}</b> is complete!</p><p>🔘 Buttons: <b>${got} / ${total}</b> &nbsp; 🍪 Treats: <b>${extra.treats ?? 0} / ${extra.treatsTotal ?? 0}</b></p>${timeHtml}
     <div class="row"><button class="btn go big" data-act="back">Back to ${esc(def.place)}</button><button class="btn" data-act="again">Play again</button></div>`, 'clear');
   wire(p, { back: () => game.leaveLevel(), again: () => game.setMode('platformer', { level: modes.platformer.levelId, returnTo: modes.platformer.returnTo }) });
+  game.onEsc = () => game.leaveLevel();
 };
 
 // ---------- Secret admin panel ----------
@@ -237,7 +267,7 @@ function showAdmin() {
       <button class="btn" data-act="tp" data-v="bbworld">Belly Button's World</button>
       <button class="btn" data-act="tp" data-v="door">Button Hill Door</button></div></div>
     <div class="admin-section"><h3>Platformer: ${esc(lvl.name)}</h3><div class="row">
-      ${lvl.checkpoints.map((_, i) => `<button class="btn" data-act="lvl" data-v="${i}">${i === 0 ? 'Start' : 'Flag ' + i}</button>`).join('')}</div></div>
+      ${lvl.checkpoints.map((_, i) => `<button class="btn" data-act="lvl" data-v="${i}">${i === 0 ? 'Start' : 'Rest spot ' + i}</button>`).join('')}</div></div>
     <div class="admin-section"><h3>Play as</h3><div class="row">
       <button class="btn" data-act="as" data-v="liev">Liev</button><button class="btn" data-act="as" data-v="bellybutton">Belly Button</button></div></div>
     <div class="admin-section"><h3>Progress</h3><div class="row">
@@ -253,14 +283,21 @@ function showAdmin() {
     as: (b) => { game.choice.player = b.dataset.v; game.saveLook(); game.ui.toast(`Now playing as ${b.dataset.v === 'liev' ? 'Liev' : 'Belly Button'}`, 2); if (game.modeName === 'explore') { modes.explore.buildChars(); game.ui.hud(true, modes.explore.area.title, modes.explore.helpText()); } closeAdmin(); },
     unlock: () => { unlock(); game.ui.toast('Everything unlocked!', 2); },
     stamp: () => { const ps = game.saves.platformer; if (!ps.stamps.includes(DOOR1.id)) ps.stamps.push(DOOR1.id); ps.levels[DOOR1.id] = { done: true, buttons: 0, total: lvl.buttons.length }; game.writeSave('platformer'); game.ui.toast('Stamp given.', 2); },
-    reset: () => { resetProgress(); game.ui.toast('All progress reset.', 2); game.setMode('title'); },
+    reset: () => { resetProgress(); Records.clear(); game.ui.toast('All progress reset.', 2); game.setMode('title'); },
     fps: () => { game.settings.showFps = !game.settings.showFps; game.saveSettings(); if (!game.settings.showFps) game.ui.fps(null); },
     close: () => closeAdmin(),
   });
-  function closeAdmin() { game.ui.closePanel(); game.paused = false; if (game.modeName === 'title') showTitle(); }
+  game.onEsc = () => closeAdmin();
+  function closeAdmin() {
+    game.ui.closePanel(); game.onEsc = null;
+    if (game.modeName === 'title') showTitle();
+    else if (game.modeName === 'select') showSelect(game.selectAfter || 'title');
+    else if (game.modeName === 'platformer' && modes.platformer.done) { const pl = modes.platformer; game.showComplete(pl.def, pl.collected.size, pl.def.buttons.length, { treats: pl.rests.treats, treatsTotal: pl.def.checkpoints.length - 1 }); }
+    else game.paused = false;
+  }
 }
 
-game.ui.onAction = (act) => { game.audio.init(); if (act === 'map') showMap(); if (act === 'hint') { if (game.modeName === 'explore') modes.explore.hint(); else Input.pressed.add('KeyH'); } if (act === 'pause') pause(); };
+game.ui.onAction = (act) => { game.audio.init(); if (game.busy) return; if (act === 'map') { if (game.mapOpen) game.closeMap(); else if (!game.paused) showMap(); } if (act === 'hint') { if (game.modeName === 'explore') modes.explore.hint(); else Input.pressed.add('KeyH'); } if (act === 'pause' && !game.paused) pause(); };
 
 // ---------- Helpers for the automated tests (run the game faster than real time) ----------
 game.sim = function (seconds, keys = [], press = [], fps = 60) {
@@ -285,7 +322,7 @@ game.state = function () {
   if (this.modeName === 'platformer') {
     const pl = modes.platformer; const p = pl.p;
     s.p = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, onGround: p.onGround, climbing: p.climbing, diving: p.diving, floating: p.floating };
-    s.checkpoint = pl.checkpoint; s.collected = pl.collected.size; s.done = pl.done; s.bridge = pl.bridgeOn; s.ball = !!pl.ball; s.player = pl.pc.kind;
+    s.checkpoint = pl.checkpoint; s.treats = pl.rests.treats; s.resting = !!pl.resting; s.timer = { on: pl.timer.enabled, started: pl.timer.started, t: pl.timer.t }; s.collected = pl.collected.size; s.done = pl.done; s.bridge = pl.bridgeOn; s.ball = !!pl.ball; s.player = pl.pc.kind;
   }
   s.saves = this.saves;
   return s;
@@ -304,8 +341,9 @@ function frame() {
   if (Input.typed.endsWith(ADMIN_WORD)) { Input.typed = ''; showAdmin(); }
   if (Input.hit('KeyF')) { game.settings.showFps = !game.settings.showFps; game.saveSettings(); if (!game.settings.showFps) game.ui.fps(null); }
   const playing = ['explore', 'platformer'].includes(game.modeName) && !game.busy;
-  if (playing && Input.hit('Escape')) { if (game.paused && !(modes.platformer.done && game.modeName === 'platformer')) resume(); else if (!game.paused) pause(); }
-  if (playing && Input.hit('KeyM')) { if (game.ui.panelOpen && game.paused) { if (!modes.platformer.done || game.modeName !== 'platformer') resume(); } else if (!game.paused) showMap(); }
+  // Esc always means "go back" on any screen; during play with nothing open, it pauses.
+  if (Input.hit('Escape') && !game.busy) { if (game.onEsc) game.onEsc(); else if (playing && !game.paused) pause(); }
+  if (playing && Input.hit('KeyM')) { if (game.mapOpen) game.closeMap(); else if (!game.paused) showMap(); }
   if (game.mode) {
     game.mode.update(dt);
     renderer.render(game.mode.scene, game.mode.camera);

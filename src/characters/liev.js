@@ -22,15 +22,16 @@ function headTexture(hair) {
       const side = Math.max(0, Math.min(1, (fd - faceHalf) / feather)); // 0 on face, 1 elsewhere
       if (side <= 0) continue;
       const b = backness(x);
+      const nearFace = Math.max(0, Math.min(1, 1 - (fd - faceHalf) / (0.13 * W))); // 1 right beside the face
       if (hair === 'everyday') {
-        const yEnd = (0.48 + 0.24 * b) * H; // down to the ear tops at the sides, the nape at the back
+        const yEnd = (0.48 + 0.24 * b - 0.15 * nearFace) * H; // ear tops at the sides, nape at the back, no sideburns by the face
         const gr = g.createLinearGradient(0, 0, 0, yEnd);
         gr.addColorStop(0, L.hair); gr.addColorStop(0.88, L.hair); gr.addColorStop(1, 'rgba(59,42,32,0)');
         g.globalAlpha = side; g.fillStyle = gr; g.fillRect(x, 0, 1, yEnd);
       } else {
         // Skin fade: dark at the top of the sides, fading to skin lower down.
         // (the shiny top hair covers down to about 0.32 of the height)
-        const yEnd = (0.6 + 0.12 * b) * H;
+        const yEnd = (0.6 + 0.12 * b - 0.17 * nearFace) * H;
         const gr = g.createLinearGradient(0, 0, 0, yEnd);
         gr.addColorStop(0, 'rgba(59,42,32,1)'); gr.addColorStop(0.62, 'rgba(59,42,32,0.92)'); gr.addColorStop(0.82, 'rgba(59,42,32,0.45)'); gr.addColorStop(1, 'rgba(59,42,32,0)');
         g.globalAlpha = side; g.fillStyle = gr; g.fillRect(x, 0, 1, yEnd);
@@ -39,7 +40,7 @@ function headTexture(hair) {
     g.globalAlpha = 1;
     if (hair === 'styled') {
       // Lightning bolt cut into the fade, lighter brown (on his LEFT side).
-      const cx = (L.boltSide === 'right' ? 0.0 : 0.5) * W, cy = 0.48 * H, s = 0.9;
+      const cx = (L.boltSide === 'right' ? 0.96 : 0.54) * W, cy = 0.42 * H, s = 0.9;
       const bolt = [[-14, -46], [22, -46], [6, -10], [26, -10], [-16, 50], [-4, 6], [-24, 6]];
       g.fillStyle = L.boltColor; g.strokeStyle = 'rgba(80,55,38,0.6)'; g.lineWidth = 3;
       g.beginPath(); bolt.forEach(([x, y], i) => { const px = cx + x * s * 1.25, py = cy + y * s; i ? g.lineTo(px, py) : g.moveTo(px, py); });
@@ -180,7 +181,7 @@ export function buildLiev(choice) {
 
   // ---- Head ----
   const HR = 0.148;
-  const head = new THREE.Group(); head.position.set(0, 1.31, 0.005); head.scale.setScalar(1.18); rig.add(head);
+  const head = new THREE.Group(); head.position.set(0, 1.31, 0.005); head.scale.set(1.18 * 0.86, 1.18 * 1.04, 1.18 * 0.96); rig.add(head); // narrower face
   const headMat = mat(std('#fff', { map: headTexture(hairStyle), roughness: 0.72 }));
   const skull = new THREE.Mesh(new THREE.SphereGeometry(HR, 48, 32), headMat); head.add(shadow(skull));
   const surf = (theta, lat, out = 0) => new THREE.Vector3(Math.sin(lat) * Math.sin(theta), Math.cos(theta), Math.cos(lat) * Math.sin(theta)).multiplyScalar(HR + out);
@@ -198,12 +199,12 @@ export function buildLiev(choice) {
     const ir = new THREE.Mesh(new THREE.CircleGeometry(0.0175, 20), iris); ir.position.z = 0.0122; e.add(ir);
     const pu = new THREE.Mesh(new THREE.CircleGeometry(0.0085, 16), pupil); pu.position.z = 0.0124; e.add(pu);
     const gl = new THREE.Mesh(new THREE.CircleGeometry(0.0042, 10), glint); gl.position.set(0.005, 0.006, 0.0126); e.add(gl);
-    place(e, 1.47, s * 0.36, -0.006); eyes.push(e);
+    place(e, 1.55, s * 0.37, -0.006); e.scale.setScalar(1.18); eyes.push(e);
     const brow = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.011, 0.01), hairMat);
-    place(brow, 1.24, s * 0.35, 0.002); brow.rotateZ(s * -0.1);
+    place(brow, 1.33, s * 0.36, 0.002); brow.rotateZ(s * -0.1);
   }
   // Nose.
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.021, 14, 10), skin); nose.scale.set(0.95, 0.8, 0.9); place(nose, 1.62, 0, -0.006);
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.021, 14, 10), skin); nose.scale.set(0.95, 0.8, 0.9); place(nose, 1.69, 0, -0.006);
   // Big grin: teeth with a lip outline, bent to follow the face.
   const grin = new THREE.Group();
   const shape = (w, h) => { const sh = new THREE.Shape(); sh.moveTo(-w, 0); sh.quadraticCurveTo(0, 0.25 * h, w, 0); sh.quadraticCurveTo(w * 0.85, -h, 0, -h); sh.quadraticCurveTo(-w * 0.85, -h, -w, 0); return sh; };
@@ -213,7 +214,7 @@ export function buildLiev(choice) {
   teeth.position.set(0, -0.002, 0.0008);
   const tongue = new THREE.Mesh(bend(new THREE.CircleGeometry(0.014, 12)), mat(std('#D9726E', { polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 })));
   tongue.position.set(0, -0.024, 0.0012); tongue.scale.y = 0.45;
-  grin.add(lip, teeth, tongue); place(grin, 1.84, 0, 0.0025);
+  grin.add(lip, teeth, tongue); place(grin, 1.9, 0, 0.0025);
   // Ears that stick out a little.
   for (const s of [-1, 1]) {
     const ear = new THREE.Mesh(new THREE.SphereGeometry(0.042, 16, 12), skin);
@@ -249,7 +250,7 @@ export function buildLiev(choice) {
         const theta = 0.25 + ring * 0.21, count = 7 + ring * 3;
         for (let k = 0; k < count; k++) {
           const lat = (k + rnd() * 0.6) / count * Math.PI * 2;
-          if (Math.cos(lat) > 0.55 && theta > 0.9) continue;   // the fringe covers the forehead
+          if ((Math.cos(lat) > 0.45 && theta > 0.62) || (Math.cos(lat) > 0.05 && theta > 0.85)) continue; // keep hair off the temples (no sideburns)   // the fringe covers the forehead
           addClump(theta + (rnd() - 0.5) * 0.06, lat, 0.036 + rnd() * 0.01, 0.009 + rnd() * 0.003, 0.065 + rnd() * 0.02, 0.006 + ring * 0.001, (rnd() - 0.4) * 0.12);
         }
       }
@@ -257,24 +258,31 @@ export function buildLiev(choice) {
       for (let i = 0; i < 3; i++) addClump(0.38 + rnd() * 0.15, Math.PI + (i - 1) * 0.45, 0.018, 0.008, 0.035 + rnd() * 0.012, 0.012, 0.55 + rnd() * 0.25);
     }
     // Full fringe of bangs down to the eyebrows.
-    const th0 = hat ? 1.22 : 0.55, th1 = 1.3;
+    const th0 = hat ? 1.12 : 0.55, th1 = hat ? 1.24 : 1.14; // bangs stop above the eyebrows
     const fr = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.017, 40, 10, Math.PI / 2 - 1.0, 2.0, th0, th1 - th0), hairMat);
     head.add(shadow(fr)); hairParts.fringe.push(fr);
     for (let i = 0; i < 14; i++) { // choppy, uneven strands at the bottom of the bangs
       const lat = -0.95 + i * 0.146 + (rnd() - 0.5) * 0.05;
-      const len = 0.03 + rnd() * 0.025;
+      const len = 0.016 + rnd() * 0.014;
       const tip = new THREE.Mesh(new THREE.ConeGeometry(0.017 + rnd() * 0.006, len, 6), hairMat);
-      const p = surf(1.27, lat, 0.014); tip.position.copy(p);
+      const p = surf(th1 - 0.02, lat, 0.014); tip.position.copy(p);
       tip.lookAt(p.clone().multiplyScalar(2)); tip.rotateX(-Math.PI / 2 - 0.12); tip.rotateZ((rnd() - 0.5) * 0.35);
       tip.position.y -= len * 0.3; head.add(tip); hairParts.fringe.push(tip);
     }
     // Strands on top of the bangs so they look like hair, not a sheet.
-    if (!hat) for (let i = 0; i < 8; i++) addClump(0.72 + rnd() * 0.12, -0.7 + i * 0.2, 0.03, 0.008, 0.06, 0.016, -0.1, hairParts.fringe);
+    if (!hat) for (let i = 0; i < 8; i++) addClump(0.66 + rnd() * 0.1, -0.7 + i * 0.2, 0.03, 0.008, 0.05, 0.016, -0.1, hairParts.fringe);
   } else if (!hat) {
     // Combed up with product: shiny volume on top, swept back.
-    const shine = mat(new THREE.MeshPhysicalMaterial({ color: L.hair, roughness: 0.38, clearcoat: 0.5, clearcoatRoughness: 0.35 }));
-    const top = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.012, 40, 16, 0, Math.PI * 2, 0, 1.15), shine);
-    top.scale.set(1.0, 1.28, 1.05); top.position.set(0, 0.004, -0.004); top.rotation.x = -0.2; head.add(shadow(top)); hairParts.top.push(top);
+    // Comb lines so it reads as hair combed up and back, not a smooth helmet.
+    const combTex = cached('comb', () => { const [c, g] = makeCanvas(512, 64); g.fillStyle = '#ffffff'; g.fillRect(0, 0, 512, 64);
+      for (let x = 0; x < 512; x += 6) { g.fillStyle = `rgba(0,0,0,${0.18 + ((x * 7) % 11) / 40})`; g.fillRect(x, 0, 2.5, 64); } return toTexture(c); });
+    const shine = mat(new THREE.MeshPhysicalMaterial({ color: L.hair, map: combTex, roughness: 0.42, clearcoat: 0.45, clearcoatRoughness: 0.4 }));
+    // A close-fitting layer that sits right on the head (no gap underneath)...
+    const base = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.004, 40, 18, 0, Math.PI * 2, 0, 1.0), shine);
+    head.add(shadow(base)); hairParts.top.push(base);
+    // ...plus the combed-up volume, whose lower half is hidden inside the head so it blends in.
+    const vol = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24), shine);
+    vol.scale.set(0.13, 0.105, 0.145); vol.position.set(0, 0.07, 0.006); vol.rotation.x = -0.3; head.add(shadow(vol)); hairParts.top.push(vol);
   }
 
   // ---- Captain's hat (patrol cap, two silver bars) ----
