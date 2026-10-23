@@ -126,22 +126,27 @@ export function buildLiev(choice) {
     sleeveMat = mat(std('#fff', { map: camoPlay })); legMat = mat(std(o.shorts)); sockMat = mat(std(o.socks)); shoeMat = mat(std(o.shoes, { roughness: 0.5 })); soleMat = mat(std(o.sole));
   }
 
-  // ---- Legs ----
-  const legs = [];
+  // ---- Legs (hip and knee joints, so the legs can really step) ----
+  const legs = [], knees = [];
+  const THIGH = 0.31, SHIN = 0.31;
   for (const s of [-1, 1]) {
     const pivot = new THREE.Group(); pivot.position.set(s * 0.075, 0.665, 0);
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.5, 6, 14), skin); leg.position.y = -0.3; pivot.add(leg);
+    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.058, THIGH - 0.06, 6, 14), skin); thigh.position.y = -THIGH / 2; pivot.add(thigh);
+    const knee = new THREE.Group(); knee.position.y = -THIGH; pivot.add(knee);
+    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(0.054, SHIN - 0.06, 6, 14), skin); shin.position.y = -SHIN / 2; knee.add(shin);
     if (o.legs === 'shorts') {
       const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.076, 0.3, 18), legMat); sh.position.y = -0.13; pivot.add(sh);
     } else {
-      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.062, 0.56, 18), legMat); tr.position.y = -0.27; pivot.add(tr);
+      const tr1 = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.066, THIGH + 0.02, 18), legMat); tr1.position.y = -THIGH / 2; pivot.add(tr1);
+      const tr2 = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.062, SHIN - 0.04, 18), legMat); tr2.position.y = -SHIN / 2 + 0.01; knee.add(tr2);
     }
+    // Socks and shoes ride on the knee joint (heights measured from the hip).
     const sockTop = okey === 'soccer' ? -0.33 : okey === 'army' ? -0.47 : -0.5;
     const sock = new THREE.Mesh(new THREE.CylinderGeometry(0.063, 0.061, -0.6 - sockTop + 0.02, 16), sockMat);
-    sock.position.y = (sockTop + -0.58) / 2; pivot.add(sock);
-    const shoe = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), shoeMat); shoe.scale.set(0.064, 0.048, 0.11); shoe.position.set(0, -0.612, 0.035); pivot.add(shoe);
-    const sole = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20), soleMat); sole.scale.set(0.066, 0.016, 0.112); sole.position.set(0, -0.648, 0.035); pivot.add(sole);
-    rig.add(shadow(pivot)); legs.push(pivot);
+    sock.position.y = (sockTop + -0.58) / 2 + THIGH; knee.add(sock);
+    const shoe = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), shoeMat); shoe.scale.set(0.064, 0.048, 0.11); shoe.position.set(0, -0.612 + THIGH, 0.035); knee.add(shoe);
+    const sole = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20), soleMat); sole.scale.set(0.066, 0.016, 0.112); sole.position.set(0, -0.648 + THIGH, 0.035); knee.add(sole);
+    rig.add(shadow(pivot)); legs.push(pivot); knees.push(knee);
   }
   // Hips (shorts/trousers top).
   const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.13, 0.13, 24), okey === 'soccer' ? legMat : legMat);
@@ -155,7 +160,7 @@ export function buildLiev(choice) {
   torso.scale.z = 0.74; torso.position.y = 0.655; rig.add(shadow(torso));
 
   // Neck + collar pieces.
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.05, 0.11, 16), skin); neck.position.y = 1.16; rig.add(neck);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.05, 0.12, 16), skin); neck.position.y = 1.17; rig.add(neck);
   if (okey === 'play') {
     const hoodMat = mat(std(o.hoodie, { roughness: 0.9 }));
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.032, 12, 28), hoodMat); ring.rotation.x = Math.PI / 2; ring.scale.y = 0.85; ring.position.y = 1.125; rig.add(shadow(ring));
@@ -180,160 +185,193 @@ export function buildLiev(choice) {
   }
 
   // ---- Head ----
+  // An animated-film kid's head: oval, narrower at the jaw, a soft chin and
+  // cheekbones (not a ball). Everything on the face is placed on this shape.
   const HR = 0.148;
-  const head = new THREE.Group(); head.position.set(0, 1.31, 0.005); head.scale.set(1.18 * 0.86, 1.18 * 1.04, 1.18 * 0.96); rig.add(head); // narrower face
+  const head = new THREE.Group(); head.position.set(0, 1.32, 0.005); head.scale.setScalar(0.84); rig.add(head);
+  const shapeHead = (dx, dy, dz) => {
+    let x = dx * 0.88, y = dy, z = dz * 0.98;
+    if (dy < 0) { const t = Math.pow(-dy, 1.4); x *= 1 - 0.22 * t; z *= 1 - (dz < 0 ? 0.18 : 0.06) * t; y *= 1.04; } // jaw narrows to a chin
+    if (dz < 0 && dy > -0.3) z *= 1.07;                            // round back of the skull
+    if (z > 0.55) z -= (z - 0.55) * 0.35;                          // flatter face
+    const cx = Math.abs(dx) - 0.5, cy = dy + 0.12, cz = dz - 0.62;  // cheekbones
+    const cb = Math.exp(-(cx * cx + cy * cy + cz * cz) / 0.035);
+    x += Math.sign(dx) * cb * 0.025; z += cb * 0.02;
+    return new THREE.Vector3(x, y, z);
+  };
+  const shapeGeo = (geo, r) => {
+    const p = geo.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).normalize(); const s = shapeHead(v.x, v.y, v.z).multiplyScalar(r); p.setXYZ(i, s.x, s.y, s.z); }
+    geo.computeVertexNormals(); return geo;
+  };
   const headMat = mat(std('#fff', { map: headTexture(hairStyle), roughness: 0.72 }));
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(HR, 48, 32), headMat); head.add(shadow(skull));
-  const surf = (theta, lat, out = 0) => new THREE.Vector3(Math.sin(lat) * Math.sin(theta), Math.cos(theta), Math.cos(lat) * Math.sin(theta)).multiplyScalar(HR + out);
-  const place = (obj, theta, lat, out = 0) => { const p = surf(theta, lat, out); obj.position.copy(p); obj.lookAt(p.clone().multiplyScalar(2)); head.add(obj); return obj; };
+  const skull = new THREE.Mesh(shapeGeo(new THREE.SphereGeometry(1, 64, 48), HR), headMat); head.add(shadow(skull));
+  const dirOf = (theta, lat) => [Math.sin(lat) * Math.sin(theta), Math.cos(theta), Math.cos(lat) * Math.sin(theta)];
+  const surfN = (theta, lat) => {
+    const e = 0.01, P = (t, l) => shapeHead(...dirOf(t, l)).multiplyScalar(HR);
+    const p = P(theta, lat), a = P(theta + e, lat).sub(P(theta - e, lat)), b = P(theta, lat + e).sub(P(theta, lat - e));
+    let n = new THREE.Vector3().crossVectors(b, a).normalize();
+    if (n.dot(p) < 0) n.negate();
+    if (!isFinite(n.x)) n = p.clone().normalize();
+    return { p, n };
+  };
+  const surf = (theta, lat, out = 0) => { const { p, n } = surfN(theta, lat); return p.addScaledVector(n, out); };
+  const place = (obj, theta, lat, out = 0) => { const { p, n } = surfN(theta, lat); p.addScaledVector(n, out); obj.position.copy(p); obj.lookAt(p.clone().add(n)); head.add(obj); return obj; };
 
-  // Eyes (brown) with blink.
+  // Almond-shaped brown eyes with eyelids (they blink).
   const eyes = [];
-  const white = mat(std('#FBFAF7', { roughness: 0.4 }));
-  const iris = mat(new THREE.MeshStandardMaterial({ color: L.eyes, roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-  const pupil = mat(new THREE.MeshBasicMaterial({ color: '#1A120C', polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+  const white = mat(std('#FBFAF7', { roughness: 0.35 }));
+  const iris = mat(new THREE.MeshStandardMaterial({ color: L.eyes, roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  const pupil = mat(new THREE.MeshBasicMaterial({ color: '#160E09', polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
   const glint = mat(new THREE.MeshBasicMaterial({ color: '#FFFFFF', polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+  const lidMat = mat(std(L.skin, { roughness: 0.7 }));
+  const lashMat = mat(std('#2A1C14', { roughness: 0.8 }));
   for (const s of [-1, 1]) {
     const e = new THREE.Group();
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.027, 18, 12), white); ball.scale.z = 0.45; e.add(ball);
-    const ir = new THREE.Mesh(new THREE.CircleGeometry(0.0175, 20), iris); ir.position.z = 0.0122; e.add(ir);
-    const pu = new THREE.Mesh(new THREE.CircleGeometry(0.0085, 16), pupil); pu.position.z = 0.0124; e.add(pu);
-    const gl = new THREE.Mesh(new THREE.CircleGeometry(0.0042, 10), glint); gl.position.set(0.005, 0.006, 0.0126); e.add(gl);
-    place(e, 1.55, s * 0.37, -0.006); e.scale.setScalar(1.18); eyes.push(e);
-    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.011, 0.01), hairMat);
-    place(brow, 1.33, s * 0.36, 0.002); brow.rotateZ(s * -0.1);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.025, 20, 14), white); ball.scale.set(1.1, 0.86, 0.5); e.add(ball);
+    const ir = new THREE.Mesh(new THREE.CircleGeometry(0.0148, 22), iris); ir.position.set(s * -0.002, -0.0015, 0.0122); e.add(ir);
+    const pu = new THREE.Mesh(new THREE.CircleGeometry(0.0072, 16), pupil); pu.position.set(s * -0.002, -0.0015, 0.0124); e.add(pu);
+    const gl = new THREE.Mesh(new THREE.CircleGeometry(0.0032, 10), glint); gl.position.set(s * -0.002 + 0.0045, 0.0035, 0.0126); e.add(gl);
+    // Upper eyelid (skin) with a dark lash line: gives the eye its almond shape.
+    const lid = new THREE.Mesh(new THREE.SphereGeometry(0.0262, 20, 10, 0, Math.PI * 2, 0, 0.82), lidMat);
+    lid.scale.set(1.12, 0.88, 0.56); lid.rotation.x = 0.12; e.add(lid);
+    const lash = new THREE.Mesh(new THREE.TorusGeometry(0.0255, 0.0022, 6, 20, Math.PI * 0.9), lashMat);
+    lash.scale.set(1.1, 0.75, 1); lash.rotation.z = Math.PI * 0.05; lash.position.set(0, 0.006, 0.006); e.add(lash);
+    place(e, 1.6, s * 0.37, -0.007); eyes.push({ group: e, lid });
+    // Eyebrows: thin, slightly arched.
+    const brow = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.0068, 6, 14, 1.3), hairMat);
+    brow.rotation.z = Math.PI / 2 - 0.65; brow.scale.set(1, 0.55, 1);
+    place(brow, 1.41, s * 0.36, 0.0); brow.rotateZ(s * 0.08); brow.position.y -= 0.022;
   }
-  // Nose.
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.021, 14, 10), skin); nose.scale.set(0.95, 0.8, 0.9); place(nose, 1.69, 0, -0.006);
-  // Big grin: teeth with a lip outline, bent to follow the face.
-  const grin = new THREE.Group();
-  const shape = (w, h) => { const sh = new THREE.Shape(); sh.moveTo(-w, 0); sh.quadraticCurveTo(0, 0.25 * h, w, 0); sh.quadraticCurveTo(w * 0.85, -h, 0, -h); sh.quadraticCurveTo(-w * 0.85, -h, -w, 0); return sh; };
-  const bend = (geo) => { const p = geo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, -(x * x + y * y * 0.6) / (2 * HR)); } geo.computeVertexNormals(); return geo; };
-  const lip = new THREE.Mesh(bend(new THREE.ShapeGeometry(shape(0.05, 0.034), 16)), mat(std(L.lips, { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
-  const teeth = new THREE.Mesh(bend(new THREE.ShapeGeometry(shape(0.043, 0.024), 16)), mat(std('#FFFFFF', { roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })));
-  teeth.position.set(0, -0.002, 0.0008);
-  const tongue = new THREE.Mesh(bend(new THREE.CircleGeometry(0.014, 12)), mat(std('#D9726E', { polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 })));
-  tongue.position.set(0, -0.024, 0.0012); tongue.scale.y = 0.45;
-  grin.add(lip, teeth, tongue); place(grin, 1.9, 0, 0.0025);
+  // Small nose with soft nostrils.
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.014, 16, 12), skin); nose.scale.set(1.0, 0.8, 1.0); place(nose, 1.84, 0, -0.002);
+  const bridge = new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.03, 4, 8), skin); place(bridge, 1.72, 0, -0.004); bridge.rotateX(Math.PI / 2 + 0.25);
+  // Closed-mouth, slightly lopsided smile with a soft lower lip.
+  // Smile: a curved crescent "drawn" onto the face, a little higher on one side.
+  const smileShape = new THREE.Shape(); const W2 = 0.044, D = 0.017;
+  for (let i = 0; i <= 20; i++) { const u = -1 + i / 10; const y = D * (u * u - 1) + u * 0.003; i ? smileShape.lineTo(u * W2, y) : smileShape.moveTo(u * W2, y); }
+  for (let i = 20; i >= 0; i--) { const u = -1 + i / 10; const th = 0.0055 * (1 - u * u * 0.7); const y = D * (u * u - 1) + u * 0.003 + th; smileShape.lineTo(u * W2, y); }
+  const smileGeo = new THREE.ShapeGeometry(smileShape, 4);
+  { const p2 = smileGeo.attributes.position; for (let i = 0; i < p2.count; i++) { const x = p2.getX(i); p2.setZ(i, -(x * x) / (2 * HR * 0.8)); } }
+  const smile = new THREE.Mesh(smileGeo, mat(std('#8E4038', { roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })));
+  place(smile, 1.9, 0, 0.0015);
+  const lowerLip = new THREE.Mesh(new THREE.SphereGeometry(0.014, 14, 10), mat(std('#E3A493', { roughness: 0.6 })));
+  lowerLip.scale.set(1.6, 0.42, 0.45); place(lowerLip, 2.1, 0, -0.005);
   // Ears that stick out a little.
   for (const s of [-1, 1]) {
-    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.042, 16, 12), skin);
-    ear.scale.set(0.42, 1, 0.75); ear.position.set(s * 0.145, -0.01, -0.005); ear.rotation.y = s * -0.45; head.add(shadow(ear));
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.036, 16, 12), skin);
+    const { p } = surfN(1.66, s * Math.PI / 2);
+    ear.scale.set(0.42, 1, 0.72); ear.position.copy(p).add(new THREE.Vector3(s * 0.004, 0, -0.01)); ear.rotation.y = s * -0.5; head.add(shadow(ear));
+    const inner = new THREE.Mesh(new THREE.SphereGeometry(0.022, 12, 8), mat(std('#E9B9A2'))); inner.scale.set(0.3, 0.8, 0.5); inner.position.set(s * 0.008, 0, 0.004); ear.add(inner);
   }
 
   // ---- Hair ----
   const hairParts = { top: [], fringe: [] };
   if (hairStyle === 'everyday') {
-    // Hair is built from many soft clumps that flow out from the crown, so the
-    // top looks tousled and layered instead of one smooth "bowl".
-    const clumpGeo = new THREE.SphereGeometry(1, 18, 12);
+    // Tousled, spiky top with shorter sides, built from soft clumps that
+    // flow forward from the crown (like the reference picture).
+    const clumpGeo = new THREE.SphereGeometry(1, 16, 12);
     let hs = 91; const rnd = () => (hs = (hs * 16807) % 2147483647) / 2147483647;
-    const crown = surf(0.4, Math.PI, 0).normalize();
+    const crown = surf(0.45, Math.PI, 0).normalize();
     const addClump = (theta, lat, w, thick, len, out, lift = 0, list = hairParts.top) => {
-      const n = surf(theta, lat, 0).normalize();
-      const t = n.clone().sub(crown); t.sub(n.clone().multiplyScalar(t.dot(n)));
+      const { n } = surfN(theta, lat);
+      const t = surf(theta, lat).normalize().sub(crown); t.sub(n.clone().multiplyScalar(t.dot(n)));
       if (t.lengthSq() < 1e-6) t.set(0, 0, 1); t.normalize();
       t.addScaledVector(n, lift).normalize();                 // lift > 0 makes the tip stick up
       const x = new THREE.Vector3().crossVectors(n, t).normalize();
       const y = new THREE.Vector3().crossVectors(t, x).normalize();
       const m = new THREE.Mesh(clumpGeo, hairMat);
       m.matrix.makeBasis(x, y, t).scale(new THREE.Vector3(w, thick, len));
-      m.matrix.setPosition(surf(theta, lat, out).addScaledVector(t, len * 0.45));
+      m.matrix.setPosition(surf(theta, lat, out).addScaledVector(t, len * 0.5));
       m.matrixAutoUpdate = false; m.castShadow = true; head.add(m); list.push(m); return m;
     };
     if (!hat) {
-      // Thin base layer so no scalp shows between clumps.
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.006, 40, 20, 0, Math.PI * 2, 0, 1.32), hairMat);
-      cap.position.z = -0.004; head.add(shadow(cap)); hairParts.top.push(cap);
-      // Layered clumps over the whole top, back and sides.
-      for (let ring = 0; ring < 5; ring++) {
-        const theta = 0.25 + ring * 0.21, count = 7 + ring * 3;
+      // Close-fitting base so no scalp shows (sides are short, shown by the texture).
+      const cap = new THREE.Mesh(shapeGeo(new THREE.SphereGeometry(1, 48, 24, 0, Math.PI * 2, 0, 1.08), HR + 0.005), hairMat);
+      head.add(shadow(cap)); hairParts.top.push(cap);
+      // Messy, layered top: pieces lifted up and pointing forward.
+      for (let ring = 0; ring < 4; ring++) {
+        const theta = 0.12 + ring * 0.22, count = 5 + ring * 4;
         for (let k = 0; k < count; k++) {
-          const lat = (k + rnd() * 0.6) / count * Math.PI * 2;
-          if ((Math.cos(lat) > 0.45 && theta > 0.62) || (Math.cos(lat) > 0.05 && theta > 0.85)) continue; // keep hair off the temples (no sideburns)   // the fringe covers the forehead
-          addClump(theta + (rnd() - 0.5) * 0.06, lat, 0.036 + rnd() * 0.01, 0.009 + rnd() * 0.003, 0.065 + rnd() * 0.02, 0.006 + ring * 0.001, (rnd() - 0.4) * 0.12);
+          const lat = (k + rnd() * 0.7) / count * Math.PI * 2;
+          if (Math.cos(lat) > 0.2 && theta > 0.7) continue;   // front is the fringe
+          addClump(theta + (rnd() - 0.5) * 0.08, lat, 0.03 + rnd() * 0.01, 0.011 + rnd() * 0.004, 0.055 + rnd() * 0.025, 0.008 + ring * 0.002, 0.2 + rnd() * 0.3 - ring * 0.08);
         }
       }
-      // A few pieces sticking up at the crown and back (like in the photos).
-      for (let i = 0; i < 3; i++) addClump(0.38 + rnd() * 0.15, Math.PI + (i - 1) * 0.45, 0.018, 0.008, 0.035 + rnd() * 0.012, 0.012, 0.55 + rnd() * 0.25);
+      // Spiky tufts sticking up on top.
+      for (let i = 0; i < 6; i++) addClump(0.25 + rnd() * 0.3, (rnd() - 0.5) * 4.0, 0.016 + rnd() * 0.006, 0.009, 0.035 + rnd() * 0.02, 0.016, 0.7 + rnd() * 0.5);
     }
-    // Full fringe of bangs down to the eyebrows.
-    const th0 = hat ? 1.12 : 0.55, th1 = hat ? 1.24 : 1.14; // bangs stop above the eyebrows
-    const fr = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.017, 40, 10, Math.PI / 2 - 1.0, 2.0, th0, th1 - th0), hairMat);
-    head.add(shadow(fr)); hairParts.fringe.push(fr);
-    for (let i = 0; i < 14; i++) { // choppy, uneven strands at the bottom of the bangs
-      const lat = -0.95 + i * 0.146 + (rnd() - 0.5) * 0.05;
-      const len = 0.016 + rnd() * 0.014;
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.017 + rnd() * 0.006, len, 6), hairMat);
-      const p = surf(th1 - 0.02, lat, 0.014); tip.position.copy(p);
-      tip.lookAt(p.clone().multiplyScalar(2)); tip.rotateX(-Math.PI / 2 - 0.12); tip.rotateZ((rnd() - 0.5) * 0.35);
-      tip.position.y -= len * 0.3; head.add(tip); hairParts.fringe.push(tip);
+    // Fringe: separate pieces sweeping forward and down onto the forehead.
+    const fr0 = hat ? 1.15 : 0.72;
+    for (let i = 0; i < (hat ? 9 : 13); i++) {
+      const lat = -0.95 + i * (1.9 / (hat ? 8 : 12)) + (rnd() - 0.5) * 0.1;
+      addClump(fr0 + rnd() * 0.1, lat, 0.026 + rnd() * 0.008, 0.009, (hat ? 0.03 : 0.05) + rnd() * 0.02, 0.01, 0.12 + rnd() * 0.15, hairParts.fringe); // short, swept up off the eyes
     }
-    // Strands on top of the bangs so they look like hair, not a sheet.
-    if (!hat) for (let i = 0; i < 8; i++) addClump(0.66 + rnd() * 0.1, -0.7 + i * 0.2, 0.03, 0.008, 0.05, 0.016, -0.1, hairParts.fringe);
   } else if (!hat) {
     // Combed up with product: shiny volume on top, swept back.
-    // Comb lines so it reads as hair combed up and back, not a smooth helmet.
     const combTex = cached('comb', () => { const [c, g] = makeCanvas(512, 64); g.fillStyle = '#ffffff'; g.fillRect(0, 0, 512, 64);
       for (let x = 0; x < 512; x += 6) { g.fillStyle = `rgba(0,0,0,${0.18 + ((x * 7) % 11) / 40})`; g.fillRect(x, 0, 2.5, 64); } return toTexture(c); });
     const shine = mat(new THREE.MeshPhysicalMaterial({ color: L.hair, map: combTex, roughness: 0.42, clearcoat: 0.45, clearcoatRoughness: 0.4 }));
-    // A close-fitting layer that sits right on the head (no gap underneath)...
-    const base = new THREE.Mesh(new THREE.SphereGeometry(HR + 0.004, 40, 18, 0, Math.PI * 2, 0, 1.0), shine);
+    const base = new THREE.Mesh(shapeGeo(new THREE.SphereGeometry(1, 48, 20, 0, Math.PI * 2, 0, 1.0), HR + 0.004), shine);
     head.add(shadow(base)); hairParts.top.push(base);
-    // ...plus the combed-up volume, whose lower half is hidden inside the head so it blends in.
     const vol = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24), shine);
-    vol.scale.set(0.13, 0.105, 0.145); vol.position.set(0, 0.07, 0.006); vol.rotation.x = -0.3; head.add(shadow(vol)); hairParts.top.push(vol);
+    vol.scale.set(0.11, 0.1, 0.14); vol.position.set(0, 0.075, 0.01); vol.rotation.x = -0.3; head.add(shadow(vol)); hairParts.top.push(vol);
   }
 
   // ---- Captain's hat (patrol cap, two silver bars) ----
   if (hat) {
     const ht = cached('hatcamo', () => digitalCamo(L.hat.camo, 41, 256, 6));
     const hatMat = mat(std('#fff', { map: ht, roughness: 0.9 }));
-    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.152, 0.16, 0.1, 32), hatMat);
-    crown.position.y = 0.098; crown.scale.z = 1.05; head.add(shadow(crown));
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.118, 0.118, 0.014, 24, 1, false, -Math.PI / 2, Math.PI), hatMat);
-    brim.scale.set(1.22, 1, 0.9); brim.position.set(0, 0.052, 0.125); brim.rotation.x = 0.16; head.add(shadow(brim));
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.138, 0.146, 0.1, 32), hatMat);
+    crown.position.set(0, 0.098, -0.004); crown.scale.set(0.92, 1, 1.06); head.add(shadow(crown));
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.014, 24, 1, false, -Math.PI / 2, Math.PI), hatMat);
+    brim.scale.set(1.15, 1, 0.9); brim.position.set(0, 0.052, 0.118); brim.rotation.x = 0.16; head.add(shadow(brim));
     const silver = mat(new THREE.MeshStandardMaterial({ color: L.hat.bars, metalness: 0.9, roughness: 0.3 }));
-    for (const sx of [-1, 1]) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.038, 0.006), silver); bar.position.set(sx * 0.014, 0.102, 0.163); bar.rotation.x = -0.1; head.add(bar); }
+    for (const sx of [-1, 1]) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.038, 0.006), silver); bar.position.set(sx * 0.014, 0.102, 0.152); bar.rotation.x = -0.1; head.add(bar); }
   }
 
   const st = { phase: 0, blink: 2 + Math.random() * 2, squash: 0, kick: 0, climb: 0, glow: 0 };
   return {
     kind: 'liev', name: L.name, root, height: L.height, radius: 0.24, halfWidth: 0.27,
-    parts: { arms, legs, head, eyes, hairParts },
+    parts: { arms, legs, knees, head, eyes, hairParts },
     set glow(v) { st.glow = v; }, get glow() { return st.glow; },
     land(strength = 1) { st.squash = Math.min(1, 0.4 + strength * 0.4); },
     kick() { st.kick = 1; },
     animate(dt, a = {}) {
       const speed = a.speed || 0, s = Math.min(1, speed / 3.2);
-      st.phase += dt * (speed * 2.7 + (a.climbing ? 7 : 0));
+      // Stride: bigger steps when faster, and the step rate matches the ground speed so feet don't slide.
+      const A = speed > 0.05 ? Math.min(0.85, 0.32 + speed * 0.085) : 0;
+      const cycle = Math.max(0.6, 4 * 0.62 * Math.sin(Math.max(A, 0.2)) * (speed > 4.5 ? 1.25 : 1));
+      st.phase += dt * (speed > 0.05 ? (Math.PI * 2 * speed / cycle) : 0) + dt * (a.climbing ? 7 : 0);
       const air = a.onGround === false && !a.climbing;
       const swing = Math.sin(st.phase);
       st.kick = Math.max(0, st.kick - dt * 3.5);
       legs.forEach((p, i) => {
-        const sg = i === 0 ? 1 : -1;
-        let tx = swing * 0.75 * s * sg;
-        if (air) tx = i === 0 ? -0.6 : 0.35;
-        if (a.climbing) tx = Math.sin(st.phase + i * Math.PI) * 0.6 - 0.3;
-        if (i === 0 && st.kick > 0) tx = -Math.sin(st.kick * Math.PI) * 1.4;
-        p.rotation.x = damp(p.rotation.x, tx, 18, dt);
+        const ph = st.phase + i * Math.PI;          // the two legs are half a step apart: they alternate
+        let tx = Math.sin(ph) * A;                   // + = leg back, - = leg forward
+        let kn = A * 1.6 * Math.max(0, -Math.cos(ph)) + (speed > 4.5 ? 0.25 : 0.05) * (A > 0 ? 1 : 0); // knee bends as the leg swings forward
+        if (air) { tx = i === 0 ? -0.7 : 0.3; kn = i === 0 ? 0.9 : 0.5; }
+        if (a.climbing) { tx = Math.sin(ph) * 0.6 - 0.4; kn = 0.6 + Math.max(0, Math.cos(ph)) * 0.6; }
+        if (i === 0 && st.kick > 0) { tx = -Math.sin(st.kick * Math.PI) * 1.4; kn = 0.1; }
+        p.rotation.x = damp(p.rotation.x, tx, 20, dt);
+        knees[i].rotation.x = damp(knees[i].rotation.x, kn, 20, dt);
       });
       arms.forEach((p, i) => {
         const sg = i === 0 ? -1 : 1;
-        let tx = swing * 0.6 * s * sg, tz = (i === 0 ? -1 : 1) * 0.08;
+        let tx = swing * A * 0.9 * sg, tz = (i === 0 ? -1 : 1) * 0.08;
         if (air) { tx = -0.4; tz = (i === 0 ? -1 : 1) * 0.6; }
         if (a.climbing) { tx = -2.6 + Math.sin(st.phase + i * Math.PI) * 0.4; tz = 0; }
         if (a.cheer) { tx = -2.8 + Math.sin(st.phase * 6 + i) * 0.3; tz = (i === 0 ? -1 : 1) * 0.3; }
         p.rotation.x = damp(p.rotation.x, tx, 14, dt); p.rotation.z = damp(p.rotation.z, tz, 14, dt);
       });
-      rig.position.y = Math.abs(Math.sin(st.phase)) * 0.035 * s;
+      rig.position.y = Math.abs(Math.cos(st.phase)) * 0.03 * s - (speed > 4.5 ? 0.02 : 0); // a little bounce on each step
       rig.rotation.x = damp(rig.rotation.x, s * 0.08, 6, dt);
       st.squash = damp(st.squash, 0, 8, dt);
       rig.scale.set(1 + st.squash * 0.05, 1 - st.squash * 0.08, 1 + st.squash * 0.05);
       // Blink.
       st.blink -= dt;
       const closed = st.blink < 0.11 ? 0.1 : 1;
-      eyes.forEach(e => { e.scale.y = closed; });
+      eyes.forEach(e => { e.group.scale.y = closed; });
       if (st.blink < 0) st.blink = 2.5 + Math.random() * 2.5;
     },
     dispose() { root.traverse(x => { if (x.geometry) x.geometry.dispose(); }); disposables.forEach(m => m.dispose()); if (camoArmy) camoArmy.dispose(); if (camoPlay) camoPlay.dispose(); },

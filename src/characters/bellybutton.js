@@ -129,14 +129,14 @@ export function buildBellyButton() {
     land(strength = 1) { st.squash = Math.min(1, 0.5 + strength * 0.5); },
     animate(dt, a = {}) {
       const speed = a.speed || 0, s = Math.min(1, speed / 3);
-      st.phase += dt * (3 + speed * 3.2);
+      st.phase += dt * (speed > 0.05 ? Math.PI * 2 * speed / 0.55 : 2); // short legs take quick little steps
       // Waddle, steps, arm swing.
       body.rotation.z = Math.sin(st.phase) * 0.09 * s;
       body.position.y = Math.abs(Math.sin(st.phase)) * 0.025 * s;
       feet.forEach((f, i) => {
         const ph = st.phase + i * Math.PI;
-        f.position.y = 0.04 * H + Math.max(0, Math.sin(ph)) * 0.05 * s;
-        f.position.z = 0.12 * H + Math.cos(ph) * 0.04 * s;
+        f.position.y = 0.04 * H + Math.max(0, Math.sin(ph)) * 0.07 * s;   // lift one foot...
+        f.position.z = 0.12 * H + Math.cos(ph) * 0.1 * s;                // ...and swing it forward while the other goes back
       });
       const air = a.onGround === false;
       arms.forEach((p, i) => {
