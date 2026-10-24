@@ -32,6 +32,12 @@ To change Liev's pixel animations: replace `tools/liev_retro_source_A.png` with 
 Tips: duck under bullets, the machine-gun nest and the tank only stop for grenades, and red X marks show where bombs and shells will land.
 The level layout is easy to edit at the top of `src/retro_war.js` (one line per thing).
 
+## South Pacific, 1943 (behind the sea-blue Ocean Door)
+Three parts in a row:
+- **Island (on foot):** same controls as France 1944. E moves the logs to free a sailor. The gray bunker needs a grenade.
+- **Submarine:** arrows steer · X fires a torpedo · stop inside seaweed to hide · rise near the top to hit ships · red buoys repair the sub.
+- **Fighter plane:** ↑ nose up · ↓ nose down · → more power · ← less power · X fires · G puts the wheels up or down. Too slow and the plane stalls. To land on the carrier: stop 6 planes first, then wheels down, slow, and gentle.
+
 ## Project files
 - Story and design: `docs/CONCEPT.md` · Look: `docs/VISUAL_DIRECTION.md` · Tech plan: `docs/FEASIBILITY.md`
 - Decisions, plan and checklists: `docs/PROJECT_RECORD.md`

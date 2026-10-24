@@ -123,6 +123,8 @@ function makeWarArt() {
       px(g, OX - 1, 19, U, 4, 11); px(g, OX - 1, 29, S, 3, 3);                                    // arm down
       for (let i = 0; i < 14; i++) px(g, OX - 6 + i, 31 - i, i < 6 ? '#6B4423' : '#2A2A2A', 2, 2); // rifle carried across
     }
+    // Red shoulder patch so you can tell they're the German soldiers (plain red, no symbols).
+    px(g, OX - 1, 19 + dy, '#7A1F1A', 5, 5); px(g, OX, 20 + dy, '#D83A2E', 3, 3); px(g, OX, 20 + dy, '#F06A5A', 3, 1);
     hard(g, W, H); return c;
   };
   a.soldier = { walk: ['walk0', 'walk1', 'walk2', 'walk3'].map(soldier), stand: soldier('stand'), aim: soldier('aim'), fire: soldier('fire'), surrender: soldier('surrender'), ox: OX, w: W, h: H };
@@ -218,7 +220,7 @@ export class RetroWar extends Retro {
     // An old photo coming to life: start in sepia, warm up to color.
     this.canvas.style.transition = 'none'; this.canvas.style.filter = 'sepia(1)';
     setTimeout(() => { this.canvas.style.transition = 'filter 3s ease'; this.canvas.style.filter = 'sepia(0.18)'; }, 60);
-    this.g.ui.toast('France, 1944. Help the Resistance: free 3 villagers and reach the radio!', 5);
+    this.g.ui.toast(this.def.introText || 'France, 1944. Help the Resistance: free 3 villagers and reach the radio!', 5);
     this.updateHud();
   }
   exit() { super.exit(); this.canvas.style.filter = ''; this.canvas.style.transition = ''; }
@@ -245,7 +247,7 @@ export class RetroWar extends Retro {
       facade: (x0, x1) => this.facades.push([x0, x1]),
       item: (x, row, kind, respawn = false) => this.items.push({ kind, x: x * T + 8, y: row * T, taken: false, respawn, t: 0 }),
       soldier: (x, row, x0, x1) => this.enemies.push({ type: 'soldier', x: x * T + 8, y: row * T, x0: x0 * T + 8, x1: x1 * T + 8, face: -1, state: 'patrol', t: 0, hp: 2, hurtT: 0, walkT: 0 }),
-      mg: (x, row, face) => this.enemies.push({ type: 'mg', x: x * T + 8, y: row * T, face, state: 'watch', t: 0, hp: 1, hurtT: 0, burst: 0 }),
+      mg: (x, row, face, kind = 'mg') => this.enemies.push({ type: 'mg', kind, armored: kind !== 'aa', x: x * T + 8, y: row * T, face, state: 'watch', t: 0, hp: kind === 'aa' ? 3 : 1, hurtT: 0, burst: 0 }),
       tank: (x, row, x0, x1) => { this.tankDef = { x: x * T, y: row * T, x0: x0 * T, x1: x1 * T }; },
       bombZone: (x0, x1) => this.bombZones.push([x0 * T, x1 * T]),
       debris: (x0, x1, ceilRow) => this.debrisZones.push({ x0: x0 * T, x1: x1 * T, y: ceilRow * T, t: 1 }),
@@ -318,7 +320,7 @@ export class RetroWar extends Retro {
       for (const e of this.enemies) {
         if (e.state === 'out' || e.state === 'dizzy') continue;
         if (e.type === 'soldier' && Math.abs(b.x - e.x) < 9 && b.y > e.y - 46 && b.y < e.y) { this.damageEnemy(e, b.dmg); b.life = 0; break; }
-        if (e.type === 'mg' && Math.abs(b.x - e.x) < 12 && b.y > e.y - 46 && b.y < e.y) { b.life = 0; this.fx.push({ kind: 'spark', x: b.x, y: b.y, t: 0 }); a.sfx('ping'); this.tipOnce('mg', 'The sandbags protect him. Try a grenade (press 3)!'); break; }
+        if (e.type === 'mg' && Math.abs(b.x - e.x) < 12 && b.y > e.y - 46 && b.y < e.y) { b.life = 0; if (e.armored === false) { this.damageEnemy(e, b.dmg); break; } this.fx.push({ kind: 'spark', x: b.x, y: b.y, t: 0 }); a.sfx('ping'); this.tipOnce('mg', this.mgTip || 'The sandbags protect him. Try a grenade (press 3)!'); break; }
       }
       const tk = this.tank;
       if (b.life > 0 && tk && tk.state === 'drive' && b.x > tk.x && b.x < tk.x + 108 && b.y > tk.y - 50 && b.y < tk.y) { b.life = 0; this.fx.push({ kind: 'spark', x: b.x, y: b.y, t: 0 }); a.sfx('ping'); this.tipOnce('tank', 'Bullets just bounce off the tank. Grenades will stop it!'); }
@@ -356,7 +358,7 @@ export class RetroWar extends Retro {
       if (it.taken) { if (it.respawn) { it.t -= dt; if (it.t <= 0 && this.ammo.grenade < 3) it.taken = false; } continue; }
       if (Math.abs(it.x - p.x) < 14 && Math.abs(it.y - p.y) < 20) {
         it.taken = true; it.t = 6; a.sfx('pickup');
-        if (it.kind === 'croissant') { this.hearts = Math.min(3, this.hearts + 1); this.g.ui.toast('🥐 A warm croissant! +1 heart', 1.6); }
+        if (it.kind === 'croissant') { this.hearts = Math.min(3, this.hearts + 1); this.g.ui.toast(this.healText || '🥐 A warm croissant! +1 heart', 1.6); }
         if (it.kind === 'ammo') { this.ammo.rifle += 8; this.g.ui.toast('🎯 +8 rifle bullets', 1.6); }
         if (it.kind === 'grenades') { this.ammo.grenade = Math.min(9, this.ammo.grenade + 3); this.g.ui.toast('💣 +3 grenades', 1.6); }
         this.updateHud();
@@ -365,8 +367,8 @@ export class RetroWar extends Retro {
     // Cages: press E to set a villager free.
     let near = null;
     for (const c of this.cages) { if (c.open) { c.runT += dt; continue; } if (Math.abs(c.x - p.x) < 22 && Math.abs(c.y - p.y) < 4) near = c; }
-    this.g.ui.prompt(near ? 'Open the cage' : null);
-    if (near && first && Input.hit('KeyE')) { near.open = true; this.rescued++; a.sfx('cage'); this.g.ui.toast(`"Merci, Liev!" Villager freed (${this.rescued}/3)`, 2.5); this.updateHud(); }
+    this.g.ui.prompt(near ? (this.cagePrompt || 'Open the cage') : null);
+    if (near && first && Input.hit('KeyE')) { near.open = true; this.rescued++; a.sfx('cage'); this.g.ui.toast(this.rescueText ? this.rescueText(this.rescued) : `"Merci, Liev!" Villager freed (${this.rescued}/3)`, 2.5); this.updateHud(); }
     // Barricade opens when the tank is stopped.
     if (this.tank && this.tank.state === 'broken' && !this.gateOpen) { this.gateOpen = true; a.sfx('hit'); this.g.ui.toast('The barricade is open. Run to the radio!', 3); }
     if (Math.floor(this.time * 4) !== this._hudTick) { this._hudTick = Math.floor(this.time * 4); }
@@ -517,7 +519,7 @@ export class RetroWar extends Retro {
   }
   updateRest(dt) { // safe houses heal you and give a croissant
     const r = this.resting, spot = this.restSpots[r.i]; r.t += dt; this.p.vx = 0;
-    if (r.t > 1.0 && !r.given) { r.given = true; this.hearts = 3; if (this.rests.rest(r.i)) { this.fx.push({ kind: 'croissant', x: spot.x, y: spot.y - 30, t: 0 }); this.g.audio.sfx('collect'); this.g.ui.toast('🥐 Safe house: a croissant and all hearts back!', 2); } else this.g.ui.toast('All hearts back!', 1.4); this.updateHud(); }
+    if (r.t > 1.0 && !r.given) { r.given = true; this.hearts = 3; if (this.rests.rest(r.i)) { this.fx.push({ kind: 'croissant', x: spot.x, y: spot.y - 30, t: 0 }); this.g.audio.sfx('collect'); this.g.ui.toast(this.restText || '🥐 Safe house: a croissant and all hearts back!', 2); } else this.g.ui.toast('All hearts back!', 1.4); this.updateHud(); }
     if (r.t > 1.6) this.resting = null;
   }
   checkThings(dt, ax) {
@@ -534,7 +536,7 @@ export class RetroWar extends Retro {
     if (!this.def) return;
     const hearts = this.hearts == null ? '' : '❤️'.repeat(Math.max(0, this.hearts)) + '🤍'.repeat(Math.max(0, 3 - this.hearts));
     const w = (k) => { const i = WEAPON_INFO[k]; const n = k === 'pistol' ? '∞' : (this.ammo ? this.ammo[k === 'grenade' ? 'grenade' : k] : 0); return this.weapon === k ? `<b style="background:#FFD34D;padding:0 6px;border-radius:6px">${i.icon} ${i.label} ${n}</b>` : `${i.icon} ${n}`; };
-    const left = `${this.def.name} · ${hearts} &nbsp; ${this.ammo ? WEAPONS.map(w).join(' ') : ''}${this.hidden ? ' &nbsp;🙈 hidden' : ''}<br><span style="font-size:18px">Villagers freed ${this.rescued || 0}/3 · 🎖️ ${this.collected ? this.collected.size : 0}/${this.totalStars || 0}</span>`;
+    const left = `${this.def.name} · ${hearts} &nbsp; ${this.ammo ? WEAPONS.map(w).join(' ') : ''}${this.hidden ? ' &nbsp;🙈 hidden' : ''}<br><span style="font-size:18px">${this.rescueLabel || 'Villagers freed'} ${this.rescued || 0}/3 · 🎖️ ${this.collected ? this.collected.size : 0}/${this.totalStars || 0}</span>`;
     this.g.ui.hud(true, left, `<span class="key">← →</span> move · <span class="key">Space</span> jump · <span class="key">X</span> fire · <span class="key">Q</span> or <span class="key">1</span><span class="key">2</span><span class="key">3</span> weapon · <span class="key">↓</span> duck / hide · <span class="key">Z</span> punch · <span class="key">E</span> open cage`);
     if (this.timer) { this.timer.enabled = !!this.g.settings.timer; this.showTimer(); }
   }
@@ -549,7 +551,7 @@ export class RetroWar extends Retro {
     let time = null;
     if (this.timer.enabled && this.timer.started) { const old = Records.bestTime(this.levelId), t = this.timer.stop(); time = { t, old, record: Records.submitTime(this.levelId, t) }; this.showTimer(); }
     this.g.audio.sfx('stamp');
-    this.g.ui.toast(`📻 "Calling the Allies... help is on the way!" Villagers freed: ${this.rescued}/3`, 4);
+    this.g.ui.toast(this.def.doneText ? this.def.doneText(this) : `📻 "Calling the Allies... help is on the way!" Villagers freed: ${this.rescued}/3`, 4);
     this.g.showComplete({ ...this.def, collectName: 'Medals' }, this.collected.size, this.totalStars, { treats: this.rests.treats, treatsTotal: this.restSpots.length, time });
   }
 
@@ -561,7 +563,7 @@ export class RetroWar extends Retro {
     const layer = (img, f, yOff) => { const w = img.width; let x = -Math.round(cx * f) % w; if (x > 0) x -= w; for (; x < vw; x += w) g.drawImage(img, x, yOff); };
     layer(bg.far, 0.2, groundY - 214); layer(bg.hedge, 0.45, groundY - 222);
     // Smoke columns rising from far away.
-    for (let k = 0; k < 4; k++) { const sx = ((k * 260 + 120) - cx * 0.3) % (vw + 200); const x = sx < -60 ? sx + vw + 200 : sx;
+    if (this.smoke !== false) for (let k = 0; k < 4; k++) { const sx = ((k * 260 + 120) - cx * 0.3) % (vw + 200); const x = sx < -60 ? sx + vw + 200 : sx;
       for (let i = 0; i < 9; i++) { const yy = groundY - 40 - ((this.time * 14 + i * 16) % 140); const r = 4 + i * 1.3 + ((this.time * 14 + i * 16) % 140) / 18; g.fillStyle = `rgba(90,90,100,${0.35 - i * 0.03})`; g.fillRect(Math.round(x + Math.sin(i + this.time) * 4 - r), Math.round(yy - r), Math.round(r * 2), Math.round(r * 2)); } }
     g.save(); g.translate(-cx, -cy);
     // Ruined building fronts behind the street.
@@ -569,7 +571,7 @@ export class RetroWar extends Retro {
       for (let x = x0 + 10; x < x0 + w - 10; x += 34) { g.fillStyle = '#2E2A26'; g.fillRect(x, 5 * T, 14, 18); g.fillRect(x, 8 * T - 6, 14, 18); g.fillStyle = '#6B4423'; g.fillRect(x - 2, 5 * T + 18, 18, 2); }
       for (let x = x0; x < x0 + w; x += 24) { g.fillStyle = '#6F6758'; g.fillRect(x, 3 * T - ((x / 24) % 3) * 6, 12, ((x / 24) % 3) * 6); } }
     // Water.
-    for (const [a0, b0] of this.waters) { const x0 = a0 * T, x1 = b0 * T, y0 = 11 * T + 8; g.fillStyle = '#4A6E8A'; g.fillRect(x0, y0, x1 - x0, levelH - y0); g.fillStyle = '#6E93AE'; g.fillRect(x0, y0, x1 - x0, 2); for (let x = x0; x < x1; x += 8) { const o = Math.floor((this.time * 8 + x / 8) % 8); g.fillStyle = '#9DBBD0'; g.fillRect(x + o, y0 + 5 + (x / 8 % 2) * 4, 3, 1); } }
+    for (const [a0, b0] of this.waters) { const x0 = a0 * T, x1 = b0 * T, y0 = 11 * T + 8; const wc = this.waterCols || ['#4A6E8A', '#6E93AE', '#9DBBD0']; g.fillStyle = wc[0]; g.fillRect(x0, y0, x1 - x0, levelH - y0); g.fillStyle = wc[1]; g.fillRect(x0, y0, x1 - x0, 2); for (let x = x0; x < x1; x += 8) { const o = Math.floor((this.time * 8 + x / 8) % 8); g.fillStyle = wc[2]; g.fillRect(x + o, y0 + 5 + (x / 8 % 2) * 4, 3, 1); } }
     // Decorations, signs, safe houses, hiding spots (behind Liev).
     for (const dd of this.decos) { const img = art[dd.kind]; if (!img || dd.x + img.width < cx - 40 || dd.x > cx + vw + 40) continue; g.drawImage(img, dd.x + (16 - img.width) / 2 | 0, dd.y - img.height); }
     for (const s of this.signs) g.drawImage(art['sign_' + s.kind], s.x - 5, s.y - 30);
@@ -597,6 +599,7 @@ export class RetroWar extends Retro {
     const S = art.soldier;
     for (const e of this.enemies) {
       if (e.x < cx - 60 || e.x > cx + vw + 60) continue;
+      if (e.type === 'mg' && this.drawMg) { this.drawMg(g, e); continue; }
       if (e.type === 'mg') {
         if (e.state === 'out' || e.state === 'dizzy') { g.save(); g.translate(e.x, e.y); if (e.face < 0) g.scale(-1, 1); g.drawImage(S.surrender, -S.ox, -S.h); g.restore(); if (e.state === 'dizzy') this.drawStars(g, e.x, e.y - 52); continue; }
         g.save(); g.translate(e.x, e.y); if (e.face < 0) g.scale(-1, 1); g.drawImage(S.aim, -S.ox, -S.h); g.drawImage(art.mg, 4, -36); if (e.state === 'burst' && e.t < 0.08) { g.fillStyle = '#FFF3A0'; g.fillRect(28, -37, 5, 5); } g.restore();

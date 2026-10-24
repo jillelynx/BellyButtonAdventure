@@ -10,11 +10,12 @@ import { Explore } from './explore.js';
 import { Platformer } from './platformer.js';
 import { Retro, RETRO_LEVELS } from './retro.js';
 import { RetroWar } from './retro_war.js';
+import { RetroPacific } from './retro_pacific.js';
 import { LEVELS } from './levels.js';
 import { PLACES, drawAdventureMap } from './mapdraw.js';
-import { DOOR1, DOOR2, DOOR3 } from './areas/bbworld.js';
-const DOORS = [DOOR1, DOOR2, DOOR3];
-const PLAY_MODES = ['explore', 'platformer', 'retro', 'war'];
+import { DOOR1, DOOR2, DOOR3, DOOR4 } from './areas/bbworld.js';
+const DOORS = [DOOR1, DOOR2, DOOR3, DOOR4];
+const PLAY_MODES = ['explore', 'platformer', 'retro', 'war', 'pacific'];
 import { ADMIN_WORD } from './admin.js';
 import { Records, formatTime } from './progress.js';
 
@@ -40,7 +41,7 @@ window.__bba = game; // used by the automated tests
 Input.init(canvas);
 Input.wheelMode = game.settings.wheel;
 game.audio.setVolumes(game.settings);
-const modes = { title: new Stage(game), explore: new Explore(game), platformer: new Platformer(game), retro: new Retro(game), war: new RetroWar(game) };
+const modes = { title: new Stage(game), explore: new Explore(game), platformer: new Platformer(game), retro: new Retro(game), war: new RetroWar(game), pacific: new RetroPacific(game) };
 modes.select = modes.title;
 game.modes = modes;
 
@@ -79,7 +80,7 @@ game.enterDoor = function (levelId, returnTo) {
   this.audio.sfx('door');
   this.lastReturn = returnTo;
   const rl = RETRO_LEVELS[levelId];
-  this.setMode(rl ? (rl.war ? 'war' : 'retro') : 'platformer', { level: levelId, returnTo });
+  this.setMode(rl ? (rl.pacific ? 'pacific' : rl.war ? 'war' : 'retro') : 'platformer', { level: levelId, returnTo });
 };
 game.travel = async function (dest) {
   const s = this.saves.explore;
@@ -220,7 +221,7 @@ function showSettings(back) {
     wheel: (b) => { st.wheel = b.dataset.v; Input.wheelMode = st.wheel; game.saveSettings(); showSettings(back); },
     q: (b) => { st.quality = b.dataset.v; game.saveSettings(); applyQuality(); showSettings(back); },
     fps: () => { st.showFps = !st.showFps; game.saveSettings(); if (!st.showFps) game.ui.fps(null); showSettings(back); },
-    timer: () => { st.timer = !st.timer; game.saveSettings(); if (['platformer', 'retro', 'war'].includes(game.modeName)) modes[game.modeName].updateHud(); showSettings(back); },
+    timer: () => { st.timer = !st.timer; game.saveSettings(); if (['platformer', 'retro', 'war', 'pacific'].includes(game.modeName)) modes[game.modeName].updateHud(); showSettings(back); },
     back: () => back(),
   });
   game.onEsc = () => back();
@@ -272,13 +273,16 @@ function showAdmin() {
       <button class="btn" data-act="tp" data-v="bbworld">Belly Button's World</button>
       <button class="btn" data-act="tp" data-v="door">Button Hill Door</button>
       <button class="btn" data-act="tp" data-v="door2">Pixel Door</button>
-      <button class="btn" data-act="tp" data-v="door3">Time Door (1944)</button></div></div>
+      <button class="btn" data-act="tp" data-v="door3">Time Door (1944)</button>
+      <button class="btn" data-act="tp" data-v="door4">Ocean Door (1943)</button></div></div>
     <div class="admin-section"><h3>Platformer: ${esc(lvl.name)}</h3><div class="row">
       ${lvl.checkpoints.map((_, i) => `<button class="btn" data-act="lvl" data-v="${i}">${i === 0 ? 'Start' : 'Rest spot ' + i}</button>`).join('')}</div></div>
     <div class="admin-section"><h3>Retro level: ${esc(RETRO_LEVELS[DOOR2.level].name)}</h3><div class="row">
       <button class="btn" data-act="retro" data-v="0">Start</button><button class="btn" data-act="retro" data-v="1">Rest spot 1</button><button class="btn" data-act="retro" data-v="2">Rest spot 2</button></div></div>
     <div class="admin-section"><h3>${esc(RETRO_LEVELS[DOOR3.level].name)}</h3><div class="row">
       <button class="btn" data-act="war" data-v="0">Start</button>${['Village', 'Bombing raid', 'Church', 'Tank'].map((n, i) => `<button class="btn" data-act="war" data-v="${i + 2}">${n}</button>`).join('')}</div></div>
+    <div class="admin-section"><h3>${esc(RETRO_LEVELS[DOOR4.level].name)}</h3><div class="row">
+      <button class="btn" data-act="pac" data-v="0">Start</button><button class="btn" data-act="pac" data-v="2">Jungle</button><button class="btn" data-act="pac" data-v="3">Lagoon</button><button class="btn" data-act="pac" data-v="4">Dock</button><button class="btn" data-act="pac" data-v="sub">Submarine</button><button class="btn" data-act="pac" data-v="plane">Fighter plane</button></div></div>
     <div class="admin-section"><h3>Play as</h3><div class="row">
       <button class="btn" data-act="as" data-v="liev">Liev</button><button class="btn" data-act="as" data-v="bellybutton">Belly Button</button></div></div>
     <div class="admin-section"><h3>Progress</h3><div class="row">
@@ -289,7 +293,8 @@ function showAdmin() {
     <div class="admin-section"><button class="btn go" data-act="close">Close</button></div></div>`);
   const unlock = () => { const s = game.saves.explore; s.unlocked.bbworld = true; s.started = true; for (const D of DOORS) if (!s.doorsFound.includes(D.id)) s.doorsFound.push(D.id); game.writeSave('explore'); };
   wire(p, {
-    tp: (b) => { unlock(); game.travel(b.dataset.v === 'door' ? DOOR1.id : b.dataset.v === 'door2' ? DOOR2.id : b.dataset.v === 'door3' ? DOOR3.id : b.dataset.v); },
+    tp: (b) => { unlock(); game.travel(b.dataset.v === 'door' ? DOOR1.id : b.dataset.v === 'door2' ? DOOR2.id : b.dataset.v === 'door3' ? DOOR3.id : b.dataset.v === 'door4' ? DOOR4.id : b.dataset.v); },
+    pac: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[3], v = b.dataset.v; game.setMode('pacific', { level: DOOR4.level, checkpoint: isNaN(+v) ? 0 : +v, phase: isNaN(+v) ? v : null, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
     war: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[2]; game.setMode('war', { level: DOOR3.level, checkpoint: +b.dataset.v, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
     retro: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[1]; game.setMode('retro', { level: DOOR2.level, checkpoint: +b.dataset.v, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
     lvl: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[0]; game.setMode('platformer', { level: DOOR1.level, checkpoint: +b.dataset.v, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
@@ -306,7 +311,7 @@ function showAdmin() {
     if (game.modeName === 'title') showTitle();
     else if (game.modeName === 'select') showSelect(game.selectAfter || 'title');
     else if (game.modeName === 'platformer' && modes.platformer.done) { const pl = modes.platformer; game.showComplete(pl.def, pl.collected.size, pl.def.buttons.length, { treats: pl.rests.treats, treatsTotal: pl.def.checkpoints.length - 1 }); }
-    else if ((game.modeName === 'retro' || game.modeName === 'war') && modes[game.modeName].done) { const r = modes[game.modeName]; game.showComplete({ ...r.def, collectName: r.def.collectName || 'Stars' }, r.collected.size, r.totalStars, { treats: r.rests.treats, treatsTotal: r.restSpots.length }); }
+    else if (['retro', 'war', 'pacific'].includes(game.modeName) && modes[game.modeName].done) { const r = modes[game.modeName]; game.showComplete({ ...r.def, collectName: r.def.collectName || 'Stars' }, r.collected.size, r.totalStars, { treats: r.rests.treats, treatsTotal: r.restSpots.length }); }
     else game.paused = false;
   }
 }
@@ -338,12 +343,13 @@ game.state = function () {
     s.p = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, onGround: p.onGround, climbing: p.climbing, diving: p.diving, floating: p.floating };
     s.checkpoint = pl.checkpoint; s.treats = pl.rests.treats; s.resting = !!pl.resting; s.timer = { on: pl.timer.enabled, started: pl.timer.started, t: pl.timer.t }; s.collected = pl.collected.size; s.done = pl.done; s.bridge = pl.bridgeOn; s.ball = !!pl.ball; s.player = pl.pc.kind;
   }
-  if (this.modeName === 'retro' || this.modeName === 'war') {
+  if (['retro', 'war', 'pacific'].includes(this.modeName)) {
     const r = modes[this.modeName], p = r.p;
     s.p = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, onGround: p.onGround, h: p.h, sliding: p.sliding, ducking: p.ducking, action: p.action, face: p.face };
     s.anim = { name: r.anim.name, row: r.anim.row, col: r.anim.col }; s.stars = r.collected.size; s.totalStars = r.totalStars; s.gateOpen = r.gateOpen;
     s.ball = r.ball ? { x: r.ball.x, y: r.ball.y } : null; s.done = r.done; s.treats = r.rests.treats; s.checkpoint = r.checkpoint.x; s.spriteReady = !!(r.constructor && window.__bbaSprite && window.__bbaSprite.ready);
-    if (this.modeName === 'war') Object.assign(s, { hearts: r.hearts, weapon: r.weapon, ammo: { rifle: r.ammo.rifle, grenade: r.ammo.grenade }, hidden: r.hidden, rescued: r.rescued, captured: r.captured,
+    if (this.modeName === 'pacific') { s.phase = r.phase; s.kills = r.kills; s.shipsStopped = r.shipsStopped; s.sub = r.sub && { x: r.sub.x, y: r.sub.y }; s.pl = r.pl && { x: r.pl.x, y: r.pl.y, vx: r.pl.vx, vy: r.pl.vy, a: r.pl.a, th: r.pl.th, gear: r.pl.gear, state: r.pl.state, stalled: !!r.pl.stalled }; s.hidden = r.hidden; }
+    if (this.modeName === 'war' || this.modeName === 'pacific') Object.assign(s, { hearts: r.hearts, weapon: r.weapon, ammo: { rifle: r.ammo.rifle, grenade: r.ammo.grenade }, hidden: r.hidden, rescued: r.rescued, captured: r.captured,
       enemies: r.enemies.map(e => ({ type: e.type, x: e.x, y: e.y, state: e.state, hp: e.hp })), tank: r.tank && { x: r.tank.x, hp: r.tank.hp, state: r.tank.state }, safe: r.restSpots.map(q => q.x),
       cages: r.cages.map(c => ({ x: c.x, open: c.open })), bullets: r.bullets.length, ebullets: r.ebullets.length, bombs: r.bombs.length, rocks: r.rocks.length, grenadesLive: r.grenadesLive.length, invuln: r.invuln, damageTaken: r.damageTaken,
       crumbles: [...r.crumbles.values()].filter(c => c.state !== 'solid').length });

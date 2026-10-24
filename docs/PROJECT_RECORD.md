@@ -38,6 +38,8 @@
 | A31 | 3D Liev route (c): Claude builds a rigged Liev in Blender now; swap in a Meshy/Tripo + Mixamo one later if it looks better | Message, 2026-10-22 |
 | A32 | The **next level is France 1944, not West Cork**: a retro pixel platformer with crumbling things, places to duck under and hide in, bombs to dodge, enemy soldiers attacking; some military action | Message, 2026-10-23 |
 | A33 | In France 1944 Liev can carry a **pistol, rifle and grenades** and switch between them | Message, 2026-10-23 |
+| A35 | **South Pacific** level: a pixel level in 3 parts (island on foot, submarine, airplane battle), built right away, before the 3D Liev | Answers, 2026-10-24 |
+| A36 | German soldiers in France 1944 wear a plain **red shoulder patch** | Message, 2026-10-24 |
 | A34 | Shooting is okay but **no blood**, appropriate for a middle schooler (earlier: cartoon action, defeated soldiers get dizzy and surrender, no hate symbols) | Message, 2026-10-23 |
 
 ## 2. My suggestions, not yet approved
@@ -105,6 +107,13 @@
 - [x] Free 3 caged villagers (E), stop the tank with 4 grenades, the barricade opens, reach the radio for the Treasure Stamp — *automated checks passed*
 - [x] No blood, no hate symbols, plain grey uniforms; hearts refill at safe houses; running out of hearts just restarts at the last safe house
 - [ ] Your check: is it too hard or too easy for Liev? (tank shots, bomb timing, number of soldiers are all easy to tune)
+
+### South Pacific, 1943 (behind the sea-blue Ocean Door) ✅ delivered 2026-10-24
+- [x] Part 1, the island on foot: anti-aircraft guns (bullets work), a concrete bunker (grenades only), dive bombers, falling coconuts, rope bridges, huts and bushes to hide in, 3 stranded sailors to free — *automated checks passed*
+- [x] Part 2, submarine: steer in all directions, torpedoes, sea mines, ships dropping depth charges, an enemy sub, a cave with falling rocks, seaweed to hide in, red buoys as checkpoints — *automated checks passed*
+- [x] Part 3, fighter plane (simple flight simulator): nose up/down, power, stalls when too slow, hide in clouds, stop 6 enemy planes (pilots parachute out), flak rings, then land on the carrier with wheels down, slow and gentle — *automated checks passed*
+- [x] Battles are vehicle against vehicle (no people shown fighting); enemy planes and ships carry a red circle so you can tell them apart; no blood
+- [ ] Your check: is the landing too hard for Liev? (speed and angle limits are easy to loosen)
 
 ### Milestone 3 — First complete loop: West Cork (Beara Peninsula) — now after France 1944
 One real place fully built with landmarks (green fields, mountains, rocky beach, soccer pitch), 2 platformer levels, Treasure Stamps, hints, ambient sounds, autosave, gentle world edges.

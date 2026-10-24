@@ -6,6 +6,7 @@ import { rng } from '../util.js';
 export const DOOR1 = { id: 'bbw-door1', level: 'bbw-door1', name: 'Button Hill Door', x: 0, z: -20 };
 export const DOOR2 = { id: 'bbw-door2', level: 'bbw-door2', name: 'Pixel Door', x: -14, z: 16, retro: true };
 export const DOOR3 = { id: 'bbw-door3', level: 'bbw-door3', name: 'Time Door: France 1944', x: 20, z: -10, retro: true };
+export const DOOR4 = { id: 'bbw-door4', level: 'bbw-door4', name: 'Ocean Door: South Pacific 1943', x: -22, z: 4, retro: true };
 const EDGE = 39;          // you can't go past this (the pillow hills rise up here)
 const EDGE_WARN = 36.5;   // gentle message starts here
 
@@ -79,7 +80,7 @@ export function buildBBWorld() {
   const canopyColors = ['#F2A7B5', '#A8D8B9', '#FFD98A', '#B9C8F2', '#7FC79A', '#F6B98A'];
   const trunkMat = plush('#B07A4A', felt('#B07A4A', 12, 0.08));
   const seamMat = std('#FFF8EC');
-  const avoid = [[DOOR1.x, DOOR1.z, 6], [DOOR2.x, DOOR2.z, 6], [DOOR3.x, DOOR3.z, 6], [14, 6, 4], [-17, -7, 4], [9, 13, 3.5], [0, 9, 4], [10, -8, 3], [-9, 5, 3], [-4, -12, 3]];
+  const avoid = [[DOOR1.x, DOOR1.z, 6], [DOOR2.x, DOOR2.z, 6], [DOOR3.x, DOOR3.z, 6], [DOOR4.x, DOOR4.z, 6], [14, 6, 4], [-17, -7, 4], [9, 13, 3.5], [0, 9, 4], [10, -8, 3], [-9, 5, 3], [-4, -12, 3]];
   const okSpot = (x, z) => Math.abs(x - pathX(z)) > 3 && avoid.every(([ax, az, ar]) => Math.hypot(x - ax, z - az) > ar);
   let placed = 0;
   for (let tries = 0; tries < 400 && placed < 22; tries++) {
@@ -179,8 +180,9 @@ export function buildBBWorld() {
   };
   const doorObjs = [makeDoor(DOOR1, { frame: '#F2C230', lintel: '#F29A3A', panel: '#4A90D9', star: '#C8473D' }),
     makeDoor(DOOR2, { frame: '#7FD14B', lintel: '#2347C4', panel: '#F2B530', star: '#FFFFFF' }),   // the retro Pixel Door
-    makeDoor(DOOR3, { frame: '#9C7A52', lintel: '#4E5F3A', panel: '#2347C4', star: '#F4F4F0' })];  // the Time Door (old-photo brown)
-  const doorFront = doorObjs[0].front, door2Front = doorObjs[1].front, door3Front = doorObjs[2].front;
+    makeDoor(DOOR3, { frame: '#9C7A52', lintel: '#4E5F3A', panel: '#2347C4', star: '#F4F4F0' }),   // the Time Door (old-photo brown)
+    makeDoor(DOOR4, { frame: '#2E9AC0', lintel: '#E9D49B', panel: '#3E9A46', star: '#F4F4F0' })];  // the Ocean Door (sea blue + sand)
+  const doorFront = doorObjs[0].front, door2Front = doorObjs[1].front, door3Front = doorObjs[2].front, door4Front = doorObjs[3].front;
 
   // ---- Map pages pinned in the world ----
   const page = (x, z, rotY, lines, title, color) => {
@@ -217,7 +219,8 @@ export function buildBBWorld() {
     if (!done) return [{ pos: doorFront, text: ctx.doorsFound.includes(DOOR1.id) ? 'Go through the glowing Doodle Door on Button Hill!' : 'Follow the stitched path to find something glowing on the hill!' }];
     if (!ctx.stamps.includes(DOOR2.id)) return [{ pos: door2Front, text: 'Look behind you! A green Pixel Door leads to a retro level.' }];
     if (!ctx.stamps.includes(DOOR3.id)) return [{ pos: door3Front, text: 'A brown Time Door has appeared by the far hills. It goes back to France, 1944!' }];
-    return [{ pos: new THREE.Vector3(-17, 0, -6), text: 'You got all three Treasure Stamps! The West Cork page is being colored in for next time.' }];
+    if (!ctx.stamps.includes(DOOR4.id)) return [{ pos: door4Front, text: 'A sea-blue Ocean Door is waiting on the west side. It goes to the South Pacific, 1943!' }];
+    return [{ pos: new THREE.Vector3(-17, 0, -6), text: 'You got all four Treasure Stamps! The West Cork page is being colored in for next time.' }];
   };
 
   const tv = new THREE.Vector3();
@@ -226,7 +229,7 @@ export function buildBBWorld() {
     spawn: { pos: new THREE.Vector3(0, 0, 9), yaw: Math.PI, camYaw: 0 },
     circles, boxes: [], camSpheres, maxCamDist: 7,
     terrain,
-    doors: [{ ...DOOR1, front: doorFront, yaw: 0 }, { ...DOOR2, front: door2Front, yaw: 0 }, { ...DOOR3, front: door3Front, yaw: 0 }],
+    doors: [{ ...DOOR1, front: doorFront, yaw: 0 }, { ...DOOR2, front: door2Front, yaw: 0 }, { ...DOOR3, front: door3Front, yaw: 0 }, { ...DOOR4, front: door4Front, yaw: 0 }],
     limit(p) {
       const r = Math.hypot(p.x, p.z);
       if (r > EDGE) { p.x *= EDGE / r; p.z *= EDGE / r; }
@@ -249,6 +252,7 @@ export function buildBBWorld() {
       { id: 'door1', pos: doorFront, r: 1.6, prompt: () => 'Go through the Doodle Door', action: 'door', door: DOOR1.id },
       { id: 'door2', pos: door2Front, r: 1.6, prompt: () => 'Go through the Pixel Door', action: 'door', door: DOOR2.id },
       { id: 'door3', pos: door3Front, r: 1.6, prompt: () => 'Go through the Time Door (France, 1944)', action: 'door', door: DOOR3.id },
+      { id: 'door4', pos: door4Front, r: 1.6, prompt: () => 'Go through the Ocean Door (South Pacific, 1943)', action: 'door', door: DOOR4.id },
       { id: 'westcork', pos: new THREE.Vector3(-17, 0, -7), r: 2.4, prompt: () => 'Look at the West Cork page', action: 'westcork' },
       { id: 'home', pos: new THREE.Vector3(9, 0, 13), r: 2.4, prompt: () => "Go home to Liev's room", action: 'home' },
     ],

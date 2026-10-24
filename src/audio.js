@@ -15,6 +15,9 @@ const THEMES = {
   war: { bpm: 112, root: 57, lead: 'square',   // a brave little march (minor key)
     mel: [0, null, 0, 3, 7, null, 7, null, 5, null, 3, 5, 7, null, null, null, 0, null, 0, 3, 8, null, 7, null, 5, 3, 2, null, 0, null, null, null],
     bass: [0, null, 0, null, -5, null, -5, null, -4, null, -4, null, -5, null, -7, null] },
+  pacific: { bpm: 120, root: 62, lead: 'triangle',   // brave and sunny, a little like a ukulele march
+    mel: [0, null, 4, 7, 9, null, 7, null, 4, null, 2, 4, 7, null, null, null, 9, null, 7, 4, 12, null, 11, null, 9, 7, 4, null, 2, null, null, null],
+    bass: [0, null, 7, null, 5, null, 7, null, 0, null, 7, null, -5, null, 2, null] },
   platformer: { bpm: 126, root: 67, lead: 'square',
     mel: [0, null, 4, 7, 12, null, 7, null, 9, null, 5, 9, 12, null, 9, null, 7, null, 4, 7, 11, null, 7, null, 5, 4, 2, null, 0, null, null, null],
     bass: [0, 0, 7, 7, 5, 5, 0, 0, -1, -1, 4, 4, 5, 5, 7, 7] },
@@ -89,6 +92,12 @@ export class AudioSys {
       case 'pickup': this.tone(700, t, 0.1, { type: 'triangle', gain: 0.1 }); this.tone(1050, t + 0.06, 0.15, { type: 'triangle', gain: 0.1 }); break;
       case 'crumble': this.noise(t, 0.4, { gain: 0.25, freq: 700, slideTo: 200 }); break;
       case 'switch': this.tone(900, t, 0.05, { type: 'square', gain: 0.05 }); this.tone(600, t + 0.05, 0.05, { type: 'square', gain: 0.05 }); break;
+      case 'torpedo': this.noise(t, 0.6, { gain: 0.22, freq: 400, type: 'lowpass', slideTo: 900 }); this.tone(160, t, 0.3, { gain: 0.08, slideTo: 260 }); break;
+      case 'sonar': this.tone(1250, t, 0.9, { type: 'sine', gain: 0.07 }); this.tone(1250, t + 0.45, 0.6, { type: 'sine', gain: 0.025 }); break;
+      case 'gun': this.noise(t, 0.05, { gain: 0.2, freq: 2200, q: 1 }); this.tone(260, t, 0.04, { type: 'square', gain: 0.04, slideTo: 120 }); break;
+      case 'splash': this.noise(t, 0.6, { gain: 0.35, freq: 1200, slideTo: 300 }); break;
+      case 'warn': this.tone(880, t, 0.1, { type: 'square', gain: 0.05 }); this.tone(880, t + 0.16, 0.1, { type: 'square', gain: 0.05 }); break;
+      case 'bubble': this.tone(500, t, 0.12, { type: 'sine', gain: 0.06, slideTo: 1100 }); break;
       case 'bonk': this.tone(220, t, 0.1, { type: 'square', gain: 0.06, slideTo: 160 }); break;
       default: break;
     }

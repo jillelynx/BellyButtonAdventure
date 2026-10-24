@@ -51,7 +51,8 @@ with sync_playwright() as pw:
     ev(f"(()=>{{const r={W}; r.enemies[2].x=1000; r.enemies[2].state='patrol'; r.enemies[2].hp=2; r.enemies[2].x0=990; r.enemies[2].x1=1010; r.enemies[2].face=-1;}})()")  # village soldier
     place(880, face=1); sim(0.05, [], ['Digit1']); s = sim(2.0)
     check('A soldier who spots Liev shoots (and standing gets hit)', s['hearts'] < 3, f"hearts={s['hearts']}")
-    place(880, face=1); s = sim(0.05, ['ArrowDown']); s = sim(2.5, ['ArrowDown'])
+    place(880, face=1); ev(f"{W}.debrisZones.forEach(z=>z.t=99)")   # no falling rubble during this check
+    s = sim(0.05, ['ArrowDown']); s = sim(2.5, ['ArrowDown'])
     check('Ducking makes bullets fly over Liev', s['hearts'] == 3 and s['p']['ducking'], f"hearts={s['hearts']}")
     # Hiding in a doorway: soldiers can't see you, bullets miss.
     place(47 * T + 8, face=1); ev(f"(()=>{{const e={W}.enemies[2]; e.x=56*16; e.x0=55*16; e.x1=57*16; e.state='patrol';}})()")
