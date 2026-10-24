@@ -17,6 +17,7 @@ import { DOOR1, DOOR2, DOOR3, DOOR4 } from './areas/bbworld.js';
 const DOORS = [DOOR1, DOOR2, DOOR3, DOOR4];
 const PLAY_MODES = ['explore', 'platformer', 'retro', 'war', 'pacific'];
 import { ADMIN_WORD } from './admin.js';
+import { VERSION, VERSION_DATE, VERSION_NOTE } from './version.js';
 import { Records, formatTime } from './progress.js';
 
 const canvas = document.getElementById('game');
@@ -120,6 +121,7 @@ function showTitle() {
         <button class="btn menu-chars" data-act="chars"><span class="ico">🐻</span>Characters</button>
         <button class="btn menu-settings" data-act="settings"><span class="ico">⚙️</span>Settings</button>
       </div>
+      <div class="version-tag">Version ${VERSION} · ${VERSION_DATE} · new: ${esc(VERSION_NOTE)}</div>
     </div>`);
   wire(root, {
     play: () => { if (!has) game.setMode('select', { mode: 'select', after: 'explore' }); else game.setMode('explore'); },
@@ -214,6 +216,7 @@ function showSettings(back) {
     <div class="setting"><span>⏱ Race timer in levels</span><span><button class="btn small ${st.timer ? 'sel' : ''}" data-act="timer">${st.timer ? 'On' : 'Off'}</button></span></div>
     <div class="setting"><span>Speed meter (or press F)</span><span><button class="btn small ${st.showFps ? 'sel' : ''}" data-act="fps">${st.showFps ? 'On' : 'Off'}</button></span></div>
     <p style="font-size:17px">Pinch on the trackpad (or press + / −) to zoom. Q / R also turn the camera.</p>
+    <p style="font-size:15px;opacity:.75">Version ${VERSION} · ${VERSION_DATE}</p>
     <button class="btn go" data-act="back">Back</button>`);
   p.querySelectorAll('input[type=range]').forEach(r => r.addEventListener('input', () => {
     st[r.dataset.k] = parseFloat(r.value); game.audio.setVolumes(st); game.saveSettings();
