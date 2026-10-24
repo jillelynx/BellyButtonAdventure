@@ -6,12 +6,12 @@ import { Input } from './input.js';
 import { Records, RunTimer, RestTracker, formatTime } from './progress.js';
 import { rng } from './util.js';
 
-const T = 16;                       // one tile = 16 game pixels
+export const T = 16;                // one tile = 16 game pixels
 const G = 1150, JUMP_V = 385, WALK = 96, RUN = 158, CRAWL = 60, SLIDE_V = 230;
-const STAND_H = 44, LOW_H = 22, HALF_W = 8;
+export const STAND_H = 44, LOW_H = 22, HALF_W = 8;
 
 // ---------- Load Liev's sprite sheet once (relative paths work on GitHub Pages) ----------
-const sprite = { img: null, man: null, ready: false, failed: false };
+export const sprite = { img: null, man: null, ready: false, failed: false };
 sprite.promise = Promise.all([
   new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = 'assets/sprites/liev_retro.png'; }),
   fetch('assets/sprites/liev_retro.json').then(r => { if (!r.ok) throw new Error('manifest'); return r.json(); }),
@@ -56,8 +56,8 @@ export const RETRO_LEVELS = {
 };
 
 // ---------- Small pixel-art drawing helpers ----------
-function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; return [c, g]; }
-const px = (g, x, y, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+export function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; return [c, g]; }
+export const px = (g, x, y, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
 
 function makeTiles() {
   const tiles = {};
@@ -220,7 +220,7 @@ export class Retro {
     this.fx = []; this.camX = Math.max(0, s.x - this.vw * 0.35); this.anim = { name: 'idle', t: 0 };
     if (opts.checkpoint) { const r = this.restSpots[opts.checkpoint - 1]; if (r) { this.p.x = r.x; this.p.y = r.y; this.checkpoint = { x: r.x, y: r.y }; } }
     this.g.audio.music('platformer'); this.g.audio.ambience('outdoor');
-    if (this.g.choice.player !== 'liev') this.g.ui.toast('In pixel levels, Liev leads the way. Belly Button waits at the finish to cheer!', 4);
+    if (this.g.choice.player !== 'liev') this.g.ui.toast(this.notLievText || 'In pixel levels, Liev leads the way. Belly Button waits at the finish to cheer!', 4);
     if (sprite.failed) this.g.ui.toast("Oops, Liev's pixel picture didn't load. Try reloading the page.", 6);
     this.updateHud();
   }
@@ -253,7 +253,7 @@ export class Retro {
       player: (x, row) => { this.start = { x: x * T + 8, y: row * T }; },
     };
     d.build(L);
-    this.ball = { x: this.ballStart.x, y: this.ballStart.y, vx: 0, vy: 0, spin: 0 };
+    this.ball = this.ballStart ? { x: this.ballStart.x, y: this.ballStart.y, vx: 0, vy: 0, spin: 0 } : null;
     this.gateY = 0; this.totalStars = this.stars.length + this.qboxes.length + this.crates.length;
   }
 
@@ -335,8 +335,9 @@ export class Retro {
     const ax = Input.axis(), down = Input.key('ArrowDown', 'KeyS');
     if (first && (ax.x || ax.y || Input.hit('Space', 'KeyX', 'KeyK', 'KeyZ', 'KeyJ'))) this.timer.start();
     this.timer.tick(dt);
+    if (this.combat && this.preStep(dt, first, ax, down)) return;   // combat levels add their own controls
     // Actions (kick / punch) play once; you can still move a little.
-    if (first && !p.action && p.onGround && !p.sliding) {
+    if (!this.combat && first && !p.action && p.onGround && !p.sliding) {
       if (Input.hit('KeyX', 'KeyK')) { p.action = 'kick'; p.actT = 0; p.hitDone = false; }
       else if (Input.hit('KeyZ', 'KeyJ')) { p.action = 'punch'; p.actT = 0; p.hitDone = false; }
     }
@@ -370,7 +371,7 @@ export class Retro {
     if (p.onGround && !wasGround && vyBefore > 60) { p.landT = 0.1; a.sfx('land'); }
     p.airT = p.onGround ? 0 : p.airT + dt;
     // Kick / punch contact moments.
-    if (p.action) {
+    if (p.action && (p.action === 'kick' || p.action === 'punch')) {
       p.actT += dt; const man = sprite.man && sprite.man.animations[p.action]; const fps = man ? man.fps : 14;
       const frame = Math.floor(p.actT * fps);
       if (!p.hitDone && frame >= 3) {
@@ -379,7 +380,8 @@ export class Retro {
       }
       if (frame >= 8) p.action = null;
     }
-    if (first && Input.hit('KeyH')) this.g.ui.toast('Hold Shift to run, press ↓ to slide under logs, X to kick the ball into the goal, Z to punch crates!', 5);
+    if (first && Input.hit('KeyH')) this.g.ui.toast(this.hintText || 'Hold Shift to run, press ↓ to slide under logs, X to kick the ball into the goal, Z to punch crates!', 5);
+    if (this.combat) this.combatStep(dt, first, ax, down);
     this.updateBall(dt);
     this.checkThings(dt, ax);
     // Fell in the water or off the world: back to the last rest spot (no lives lost).
@@ -445,6 +447,8 @@ export class Retro {
     let name, col;
     if (this.resting) { name = 'rest'; col = [2, 1]; }
     else if (this.done) { name = 'jumpcheer'; col = [6, Math.floor(A.t * 8) % 2 ? 4 : 3]; }
+    else if (p.action === 'fire') { name = 'fire'; col = [4, p.actT < 0.06 ? 3 : 4]; }
+    else if (p.action === 'throw') { name = 'throw'; col = [4, Math.min(7, 2 + Math.floor(p.actT * 16))]; }
     else if (p.action) { const fr = Math.min(7, Math.floor(p.actT * (p.action === 'kick' ? 14 : 16))); name = p.action; col = [p.action === 'kick' ? 3 : 4, fr]; }
     else if (p.sliding) { const t = 0.65 - p.sliding; const f = t < 0.08 ? 2 : 3 + Math.floor(t * 10) % 3; name = 'slide'; col = [2, f]; }
     else if (p.ducking) { name = 'duck'; col = [2, 1]; }

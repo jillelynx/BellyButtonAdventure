@@ -12,6 +12,9 @@ const THEMES = {
   bbworld: { bpm: 100, root: 65, lead: 'triangle',
     mel: [0, 2, 4, null, 7, null, 4, null, 9, null, 7, 4, 2, null, null, null, 4, null, 7, 9, 12, null, 9, null, 7, 4, 2, null, 0, null, null, null],
     bass: [0, null, 7, null, -3, null, 4, null, -5, null, 2, null, -7, null, 0, null] },
+  war: { bpm: 112, root: 57, lead: 'square',   // a brave little march (minor key)
+    mel: [0, null, 0, 3, 7, null, 7, null, 5, null, 3, 5, 7, null, null, null, 0, null, 0, 3, 8, null, 7, null, 5, 3, 2, null, 0, null, null, null],
+    bass: [0, null, 0, null, -5, null, -5, null, -4, null, -4, null, -5, null, -7, null] },
   platformer: { bpm: 126, root: 67, lead: 'square',
     mel: [0, null, 4, 7, 12, null, 7, null, 9, null, 5, 9, 12, null, 9, null, 7, null, 4, 7, 11, null, 7, null, 5, 4, 2, null, 0, null, null, null],
     bass: [0, 0, 7, 7, 5, 5, 0, 0, -1, -1, 4, 4, 5, 5, 7, 7] },
@@ -74,6 +77,18 @@ export class AudioSys {
       case 'ui': this.tone(660, t, 0.07, { type: 'triangle', gain: 0.08 }); break;
       case 'paper': this.noise(t, 0.25, { gain: 0.18, freq: 2500, q: 0.7 }); break;
       case 'found': [659, 784, 988].forEach((f, i) => this.tone(f, t + i * 0.1, 0.35, { type: 'triangle', gain: 0.12 })); break;
+      case 'shot': this.noise(t, 0.09, { gain: 0.35, freq: 1800, q: 0.8 }); this.tone(400, t, 0.06, { type: 'square', gain: 0.05, slideTo: 120 }); break;
+      case 'rifle': this.noise(t, 0.16, { gain: 0.45, freq: 1100, q: 0.6, slideTo: 300 }); this.tone(180, t, 0.12, { type: 'square', gain: 0.06, slideTo: 60 }); break;
+      case 'enemyshot': this.noise(t, 0.08, { gain: 0.22, freq: 1300, q: 1 }); break;
+      case 'boom': this.noise(t, 0.7, { gain: 0.55, freq: 500, type: 'lowpass', slideTo: 80 }); this.tone(90, t, 0.5, { gain: 0.25, slideTo: 40 }); break;
+      case 'whistle': this.tone(1400, t, 0.9, { type: 'sine', gain: 0.05, slideTo: 500 }); break;
+      case 'plane': this.tone(110, t, 2.2, { type: 'sawtooth', gain: 0.025, cutoff: 500, slideTo: 95 }); break;
+      case 'ping': this.tone(1800, t, 0.12, { type: 'triangle', gain: 0.07, slideTo: 2400 }); break;
+      case 'hurt': this.tone(300, t, 0.25, { type: 'square', gain: 0.07, slideTo: 140 }); break;
+      case 'cage': [523, 659, 784].forEach((f, i) => this.tone(f, t + i * 0.07, 0.3, { type: 'triangle', gain: 0.1 })); this.noise(t, 0.15, { gain: 0.2, freq: 900 }); break;
+      case 'pickup': this.tone(700, t, 0.1, { type: 'triangle', gain: 0.1 }); this.tone(1050, t + 0.06, 0.15, { type: 'triangle', gain: 0.1 }); break;
+      case 'crumble': this.noise(t, 0.4, { gain: 0.25, freq: 700, slideTo: 200 }); break;
+      case 'switch': this.tone(900, t, 0.05, { type: 'square', gain: 0.05 }); this.tone(600, t + 0.05, 0.05, { type: 'square', gain: 0.05 }); break;
       case 'bonk': this.tone(220, t, 0.1, { type: 'square', gain: 0.06, slideTo: 160 }); break;
       default: break;
     }

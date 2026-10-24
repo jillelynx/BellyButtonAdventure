@@ -36,6 +36,9 @@
 | A29 | Retro level uses **your pixel sprite sheets** for Liev (idle, walk, crouch/slide, kick, punch, run, jump) | Message, 2026-10-22 |
 | A30 | Play clothes: **black shorts**, white socks, black shoes (from your character brief) | Brief, 2026-10-22 |
 | A31 | 3D Liev route (c): Claude builds a rigged Liev in Blender now; swap in a Meshy/Tripo + Mixamo one later if it looks better | Message, 2026-10-22 |
+| A32 | The **next level is France 1944, not West Cork**: a retro pixel platformer with crumbling things, places to duck under and hide in, bombs to dodge, enemy soldiers attacking; some military action | Message, 2026-10-23 |
+| A33 | In France 1944 Liev can carry a **pistol, rifle and grenades** and switch between them | Message, 2026-10-23 |
+| A34 | Shooting is okay but **no blood**, appropriate for a middle schooler (earlier: cartoon action, defeated soldiers get dizzy and surrender, no hate symbols) | Message, 2026-10-23 |
 
 ## 2. My suggestions, not yet approved
 | # | Suggestion |
@@ -94,7 +97,16 @@
 - [x] Collisions: can't walk or jump past the log wall; slide or crawl under it; gate stays shut until a goal; water returns you to the last rest spot — *automated checks passed*
 - [x] Same movement at 60 and 15 frames per second — *automated check passed*
 
-### Milestone 3 — First complete loop: West Cork (Beara Peninsula)
+### France, 1944 (retro action level, behind the brown Time Door) ✅ delivered 2026-10-24
+- [x] Five sections: countryside, village street with machine-gun nest, bombing raid over the river, ruined church, tank — 5 safe houses (checkpoints that heal)
+- [x] Pistol (unlimited), rifle (ammo, stronger), grenades (arc, bounce, stop the gun nest and the tank); Q or 1/2/3 to switch — *automated checks passed*
+- [x] Soldiers spot you ("!"), then fire slow visible bullets you can duck under; 2 pistol hits or 1 rifle hit → dizzy stars → sit down with hands up — *automated checks passed*
+- [x] Hide in doorways, hay and barrels (↓ while standing still); crumbling floors and bridge; falling rubble with a dust warning; bombs with blinking target marks — *automated checks passed*
+- [x] Free 3 caged villagers (E), stop the tank with 4 grenades, the barricade opens, reach the radio for the Treasure Stamp — *automated checks passed*
+- [x] No blood, no hate symbols, plain grey uniforms; hearts refill at safe houses; running out of hearts just restarts at the last safe house
+- [ ] Your check: is it too hard or too easy for Liev? (tank shots, bomb timing, number of soldiers are all easy to tune)
+
+### Milestone 3 — First complete loop: West Cork (Beara Peninsula) — now after France 1944
 One real place fully built with landmarks (green fields, mountains, rocky beach, soccer pitch), 2 platformer levels, Treasure Stamps, hints, ambient sounds, autosave, gentle world edges.
 
 ### Milestone 4 — Expansion (one place at a time, each tested before the next)

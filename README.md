@@ -27,6 +27,11 @@ An original adventure game starring Belly Button the plush bear and his best fri
 
 To change Liev's pixel animations: replace `tools/liev_retro_source_A.png` with a new sheet (8 frames × 7 rows in the same order), then ask Claude to run `tools/slice_sprites.py`. It re-cuts and lines up the frames into `assets/sprites/`.
 
+## France, 1944 (behind the brown Time Door)
+← → move · Space jump · X fire · Q (or 1 pistol, 2 rifle, 3 grenades) switch weapon · ↓ duck, or hide in a doorway / hay / barrel · Z punch · E open a cage · stand still at a safe house to heal.
+Tips: duck under bullets, the machine-gun nest and the tank only stop for grenades, and red X marks show where bombs and shells will land.
+The level layout is easy to edit at the top of `src/retro_war.js` (one line per thing).
+
 ## Project files
 - Story and design: `docs/CONCEPT.md` · Look: `docs/VISUAL_DIRECTION.md` · Tech plan: `docs/FEASIBILITY.md`
 - Decisions, plan and checklists: `docs/PROJECT_RECORD.md`

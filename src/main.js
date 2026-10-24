@@ -9,11 +9,12 @@ import { Stage } from './select.js';
 import { Explore } from './explore.js';
 import { Platformer } from './platformer.js';
 import { Retro, RETRO_LEVELS } from './retro.js';
+import { RetroWar } from './retro_war.js';
 import { LEVELS } from './levels.js';
 import { PLACES, drawAdventureMap } from './mapdraw.js';
-import { DOOR1, DOOR2 } from './areas/bbworld.js';
-const DOORS = [DOOR1, DOOR2];
-const PLAY_MODES = ['explore', 'platformer', 'retro'];
+import { DOOR1, DOOR2, DOOR3 } from './areas/bbworld.js';
+const DOORS = [DOOR1, DOOR2, DOOR3];
+const PLAY_MODES = ['explore', 'platformer', 'retro', 'war'];
 import { ADMIN_WORD } from './admin.js';
 import { Records, formatTime } from './progress.js';
 
@@ -39,7 +40,7 @@ window.__bba = game; // used by the automated tests
 Input.init(canvas);
 Input.wheelMode = game.settings.wheel;
 game.audio.setVolumes(game.settings);
-const modes = { title: new Stage(game), explore: new Explore(game), platformer: new Platformer(game), retro: new Retro(game) };
+const modes = { title: new Stage(game), explore: new Explore(game), platformer: new Platformer(game), retro: new Retro(game), war: new RetroWar(game) };
 modes.select = modes.title;
 game.modes = modes;
 
@@ -77,7 +78,8 @@ game.setMode = async function (name, opts = {}) {
 game.enterDoor = function (levelId, returnTo) {
   this.audio.sfx('door');
   this.lastReturn = returnTo;
-  this.setMode(RETRO_LEVELS[levelId] ? 'retro' : 'platformer', { level: levelId, returnTo });
+  const rl = RETRO_LEVELS[levelId];
+  this.setMode(rl ? (rl.war ? 'war' : 'retro') : 'platformer', { level: levelId, returnTo });
 };
 game.travel = async function (dest) {
   const s = this.saves.explore;
@@ -218,7 +220,7 @@ function showSettings(back) {
     wheel: (b) => { st.wheel = b.dataset.v; Input.wheelMode = st.wheel; game.saveSettings(); showSettings(back); },
     q: (b) => { st.quality = b.dataset.v; game.saveSettings(); applyQuality(); showSettings(back); },
     fps: () => { st.showFps = !st.showFps; game.saveSettings(); if (!st.showFps) game.ui.fps(null); showSettings(back); },
-    timer: () => { st.timer = !st.timer; game.saveSettings(); if (game.modeName === 'platformer' || game.modeName === 'retro') modes[game.modeName].updateHud(); showSettings(back); },
+    timer: () => { st.timer = !st.timer; game.saveSettings(); if (['platformer', 'retro', 'war'].includes(game.modeName)) modes[game.modeName].updateHud(); showSettings(back); },
     back: () => back(),
   });
   game.onEsc = () => back();
@@ -252,7 +254,7 @@ game.showComplete = function (def, got, total, extra = {}) {
   const tm = extra.time;
   const timeHtml = tm ? (tm.record ? `<div class="record">🏆 New record! ${formatTime(tm.t)}</div>${tm.old != null ? `<p>Old best: ${formatTime(tm.old)}</p>` : ''}` : `<p>⏱ Time: <b>${formatTime(tm.t)}</b> &nbsp; (best ${formatTime(tm.old)})</p>`) : '';
   if (tm && tm.record) game.ui.confetti();
-  const p = game.ui.panel(`<h1>⭐ Treasure Stamp! ⭐</h1><p><b>${esc(def.name)}</b> is complete!</p><p>${def.collectName === 'Stars' ? '⭐ Stars' : '🔘 Buttons'}: <b>${got} / ${total}</b> &nbsp; 🍪 Treats: <b>${extra.treats ?? 0} / ${extra.treatsTotal ?? 0}</b></p>${timeHtml}
+  const p = game.ui.panel(`<h1>⭐ Treasure Stamp! ⭐</h1><p><b>${esc(def.name)}</b> is complete!</p><p>${def.collectName === 'Stars' ? '⭐ Stars' : def.collectName === 'Medals' ? '🎖️ Medals' : '🔘 Buttons'}: <b>${got} / ${total}</b> &nbsp; ${def.war ? '🥐' : '🍪'} Treats: <b>${extra.treats ?? 0} / ${extra.treatsTotal ?? 0}</b></p>${timeHtml}
     <div class="row"><button class="btn go big" data-act="back">Back to ${esc(def.place)}</button><button class="btn" data-act="again">Play again</button></div>`, 'clear');
   wire(p, { back: () => game.leaveLevel(), again: () => { const m = modes[game.modeName]; game.setMode(game.modeName, { level: m.levelId, returnTo: m.returnTo }); } });
   game.onEsc = () => game.leaveLevel();
@@ -269,11 +271,14 @@ function showAdmin() {
       <button class="btn" data-act="tp" data-v="home">Liev's Room</button>
       <button class="btn" data-act="tp" data-v="bbworld">Belly Button's World</button>
       <button class="btn" data-act="tp" data-v="door">Button Hill Door</button>
-      <button class="btn" data-act="tp" data-v="door2">Pixel Door</button></div></div>
+      <button class="btn" data-act="tp" data-v="door2">Pixel Door</button>
+      <button class="btn" data-act="tp" data-v="door3">Time Door (1944)</button></div></div>
     <div class="admin-section"><h3>Platformer: ${esc(lvl.name)}</h3><div class="row">
       ${lvl.checkpoints.map((_, i) => `<button class="btn" data-act="lvl" data-v="${i}">${i === 0 ? 'Start' : 'Rest spot ' + i}</button>`).join('')}</div></div>
     <div class="admin-section"><h3>Retro level: ${esc(RETRO_LEVELS[DOOR2.level].name)}</h3><div class="row">
       <button class="btn" data-act="retro" data-v="0">Start</button><button class="btn" data-act="retro" data-v="1">Rest spot 1</button><button class="btn" data-act="retro" data-v="2">Rest spot 2</button></div></div>
+    <div class="admin-section"><h3>${esc(RETRO_LEVELS[DOOR3.level].name)}</h3><div class="row">
+      <button class="btn" data-act="war" data-v="0">Start</button>${['Village', 'Bombing raid', 'Church', 'Tank'].map((n, i) => `<button class="btn" data-act="war" data-v="${i + 2}">${n}</button>`).join('')}</div></div>
     <div class="admin-section"><h3>Play as</h3><div class="row">
       <button class="btn" data-act="as" data-v="liev">Liev</button><button class="btn" data-act="as" data-v="bellybutton">Belly Button</button></div></div>
     <div class="admin-section"><h3>Progress</h3><div class="row">
@@ -284,7 +289,8 @@ function showAdmin() {
     <div class="admin-section"><button class="btn go" data-act="close">Close</button></div></div>`);
   const unlock = () => { const s = game.saves.explore; s.unlocked.bbworld = true; s.started = true; for (const D of DOORS) if (!s.doorsFound.includes(D.id)) s.doorsFound.push(D.id); game.writeSave('explore'); };
   wire(p, {
-    tp: (b) => { unlock(); game.travel(b.dataset.v === 'door' ? DOOR1.id : b.dataset.v === 'door2' ? DOOR2.id : b.dataset.v); },
+    tp: (b) => { unlock(); game.travel(b.dataset.v === 'door' ? DOOR1.id : b.dataset.v === 'door2' ? DOOR2.id : b.dataset.v === 'door3' ? DOOR3.id : b.dataset.v); },
+    war: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[2]; game.setMode('war', { level: DOOR3.level, checkpoint: +b.dataset.v, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
     retro: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[1]; game.setMode('retro', { level: DOOR2.level, checkpoint: +b.dataset.v, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
     lvl: (b) => { unlock(); const d = modes.explore.getArea('bbworld').doors[0]; game.setMode('platformer', { level: DOOR1.level, checkpoint: +b.dataset.v, returnTo: { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI } }); },
     as: (b) => { game.choice.player = b.dataset.v; game.saveLook(); game.ui.toast(`Now playing as ${b.dataset.v === 'liev' ? 'Liev' : 'Belly Button'}`, 2); if (game.modeName === 'explore') { modes.explore.buildChars(); game.ui.hud(true, modes.explore.area.title, modes.explore.helpText()); } closeAdmin(); },
@@ -300,7 +306,7 @@ function showAdmin() {
     if (game.modeName === 'title') showTitle();
     else if (game.modeName === 'select') showSelect(game.selectAfter || 'title');
     else if (game.modeName === 'platformer' && modes.platformer.done) { const pl = modes.platformer; game.showComplete(pl.def, pl.collected.size, pl.def.buttons.length, { treats: pl.rests.treats, treatsTotal: pl.def.checkpoints.length - 1 }); }
-    else if (game.modeName === 'retro' && modes.retro.done) { const r = modes.retro; game.showComplete({ ...r.def, collectName: 'Stars' }, r.collected.size, r.totalStars, { treats: r.rests.treats, treatsTotal: r.restSpots.length }); }
+    else if ((game.modeName === 'retro' || game.modeName === 'war') && modes[game.modeName].done) { const r = modes[game.modeName]; game.showComplete({ ...r.def, collectName: r.def.collectName || 'Stars' }, r.collected.size, r.totalStars, { treats: r.rests.treats, treatsTotal: r.restSpots.length }); }
     else game.paused = false;
   }
 }
@@ -332,11 +338,15 @@ game.state = function () {
     s.p = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, onGround: p.onGround, climbing: p.climbing, diving: p.diving, floating: p.floating };
     s.checkpoint = pl.checkpoint; s.treats = pl.rests.treats; s.resting = !!pl.resting; s.timer = { on: pl.timer.enabled, started: pl.timer.started, t: pl.timer.t }; s.collected = pl.collected.size; s.done = pl.done; s.bridge = pl.bridgeOn; s.ball = !!pl.ball; s.player = pl.pc.kind;
   }
-  if (this.modeName === 'retro') {
-    const r = modes.retro, p = r.p;
+  if (this.modeName === 'retro' || this.modeName === 'war') {
+    const r = modes[this.modeName], p = r.p;
     s.p = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, onGround: p.onGround, h: p.h, sliding: p.sliding, ducking: p.ducking, action: p.action, face: p.face };
     s.anim = { name: r.anim.name, row: r.anim.row, col: r.anim.col }; s.stars = r.collected.size; s.totalStars = r.totalStars; s.gateOpen = r.gateOpen;
-    s.ball = { x: r.ball.x, y: r.ball.y }; s.done = r.done; s.treats = r.rests.treats; s.checkpoint = r.checkpoint.x; s.spriteReady = !!(r.constructor && window.__bbaSprite && window.__bbaSprite.ready);
+    s.ball = r.ball ? { x: r.ball.x, y: r.ball.y } : null; s.done = r.done; s.treats = r.rests.treats; s.checkpoint = r.checkpoint.x; s.spriteReady = !!(r.constructor && window.__bbaSprite && window.__bbaSprite.ready);
+    if (this.modeName === 'war') Object.assign(s, { hearts: r.hearts, weapon: r.weapon, ammo: { rifle: r.ammo.rifle, grenade: r.ammo.grenade }, hidden: r.hidden, rescued: r.rescued, captured: r.captured,
+      enemies: r.enemies.map(e => ({ type: e.type, x: e.x, y: e.y, state: e.state, hp: e.hp })), tank: r.tank && { x: r.tank.x, hp: r.tank.hp, state: r.tank.state }, safe: r.restSpots.map(q => q.x),
+      cages: r.cages.map(c => ({ x: c.x, open: c.open })), bullets: r.bullets.length, ebullets: r.ebullets.length, bombs: r.bombs.length, rocks: r.rocks.length, grenadesLive: r.grenadesLive.length, invuln: r.invuln, damageTaken: r.damageTaken,
+      crumbles: [...r.crumbles.values()].filter(c => c.state !== 'solid').length });
   }
   s.saves = this.saves;
   return s;
