@@ -87,6 +87,7 @@ game.travel = async function (dest) {
   let opts;
   if (dest === 'home') opts = { area: 'bedroom' };
   else if (dest === 'bbworld') { if (!s.unlocked.bbworld) return; opts = { area: 'bbworld' }; }
+  else if (dest === 'cove') opts = { area: 'cove' };
   else if (DOORS.some(d => d.id === dest)) { if (!s.doorsFound.includes(dest)) return; const d = modes.explore.getArea('bbworld').doors.find(x => x.id === dest); opts = { area: 'bbworld', pos: d.front.clone(), yaw: Math.PI }; }
   else return;
   this.ui.closePanel(); this.paused = false;
@@ -271,6 +272,7 @@ function showAdmin() {
     <div class="admin-section"><h3>Go anywhere</h3><div class="row">
       <button class="btn" data-act="tp" data-v="home">Liev's Room</button>
       <button class="btn" data-act="tp" data-v="bbworld">Belly Button's World</button>
+      <button class="btn" data-act="tp" data-v="cove">Cozy Cove (3D)</button>
       <button class="btn" data-act="tp" data-v="door">Button Hill Door</button>
       <button class="btn" data-act="tp" data-v="door2">Pixel Door</button>
       <button class="btn" data-act="tp" data-v="door3">Time Door (1944)</button>

@@ -80,7 +80,7 @@ export function buildBBWorld() {
   const canopyColors = ['#F2A7B5', '#A8D8B9', '#FFD98A', '#B9C8F2', '#7FC79A', '#F6B98A'];
   const trunkMat = plush('#B07A4A', felt('#B07A4A', 12, 0.08));
   const seamMat = std('#FFF8EC');
-  const avoid = [[DOOR1.x, DOOR1.z, 6], [DOOR2.x, DOOR2.z, 6], [DOOR3.x, DOOR3.z, 6], [DOOR4.x, DOOR4.z, 6], [14, 6, 4], [-17, -7, 4], [9, 13, 3.5], [0, 9, 4], [10, -8, 3], [-9, 5, 3], [-4, -12, 3]];
+  const avoid = [[DOOR1.x, DOOR1.z, 6], [DOOR2.x, DOOR2.z, 6], [DOOR3.x, DOOR3.z, 6], [DOOR4.x, DOOR4.z, 6], [-6, 13, 3], [14, 6, 4], [-17, -7, 4], [9, 13, 3.5], [0, 9, 4], [10, -8, 3], [-9, 5, 3], [-4, -12, 3]];
   const okSpot = (x, z) => Math.abs(x - pathX(z)) > 3 && avoid.every(([ax, az, ar]) => Math.hypot(x - ax, z - az) > ar);
   let placed = 0;
   for (let tries = 0; tries < 400 && placed < 22; tries++) {
@@ -214,6 +214,25 @@ export function buildBBWorld() {
     c.position.set((R() - 0.5) * 140, 24 + R() * 10, (R() - 0.5) * 140); scene.add(c); clouds.push(c);
   }
 
+  // ---- A painting on an easel: step into it to visit Liev's Cozy Cove (3D sandbox) ----
+  const easel = new THREE.Group(); const ey = terrain(-6, 13); easel.position.set(-6, ey, 13); easel.rotation.y = 0.6;
+  { const legM = std('#8B5A2B');
+    for (const [x, rz] of [[-0.45, -0.12], [0.45, 0.12]]) { const leg = cast(new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.0, 0.08), legM)); leg.position.set(x, 1.0, 0); leg.rotation.z = rz; easel.add(leg); }
+    const back = cast(new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.9, 0.08), legM)); back.position.set(0, 0.95, -0.35); back.rotation.x = -0.2; easel.add(back);
+    const [c, g] = makeCanvas(256, 200); const gr = g.createLinearGradient(0, 0, 0, 120); gr.addColorStop(0, '#3B5BA5'); gr.addColorStop(0.7, '#F7A56F'); gr.addColorStop(1, '#FFD08A'); g.fillStyle = gr; g.fillRect(0, 0, 256, 120);
+    g.fillStyle = '#FFE2A0'; g.beginPath(); g.arc(170, 110, 16, 0, 7); g.fill();
+    const sea = g.createLinearGradient(0, 112, 0, 200); sea.addColorStop(0, '#2E9AC0'); sea.addColorStop(1, '#7FE6E0'); g.fillStyle = sea; g.fillRect(0, 112, 256, 88);
+    g.fillStyle = '#F1DDB0'; g.beginPath(); g.moveTo(0, 170); g.quadraticCurveTo(80, 150, 130, 200); g.lineTo(0, 200); g.fill();
+    g.fillStyle = '#4A5A3A'; g.beginPath(); g.moveTo(200, 120); g.lineTo(230, 70); g.lineTo(256, 80); g.lineTo(256, 125); g.fill();
+    g.strokeStyle = '#6B4A26'; g.lineWidth = 5; g.beginPath(); g.moveTo(40, 175); g.quadraticCurveTo(45, 120, 60, 95); g.stroke();
+    g.fillStyle = '#3E8E3A'; for (let k = 0; k < 6; k++) { g.beginPath(); g.ellipse(60 + Math.cos(k) * 18, 95 + Math.sin(k) * 6, 20, 5, k, 0, 7); g.fill(); }
+    g.strokeStyle = '#C9A06A'; g.lineWidth = 14; g.strokeRect(0, 0, 256, 200);
+    const tex = toTexture(c, { wrap: false });
+    const art = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.02), new THREE.MeshStandardMaterial({ map: tex, emissive: '#FFFFFF', emissiveMap: tex, emissiveIntensity: 0.25, roughness: 0.6 }));
+    art.position.set(0, 1.45, 0.08); art.rotation.x = -0.12; easel.add(art); scene.add(easel);
+    circles.push({ x: -6, z: 13, r: 0.45 }); }
+  const easelFront = new THREE.Vector3(-6 + Math.sin(0.6) * 1.3, 0, 13 + Math.cos(0.6) * 1.3);
+
   const goals = (ctx) => {
     const done = ctx.stamps.includes(DOOR1.id);
     if (!done) return [{ pos: doorFront, text: ctx.doorsFound.includes(DOOR1.id) ? 'Go through the glowing Doodle Door on Button Hill!' : 'Follow the stitched path to find something glowing on the hill!' }];
@@ -255,6 +274,7 @@ export function buildBBWorld() {
       { id: 'door4', pos: door4Front, r: 1.6, prompt: () => 'Go through the Ocean Door (South Pacific, 1943)', action: 'door', door: DOOR4.id },
       { id: 'westcork', pos: new THREE.Vector3(-17, 0, -7), r: 2.4, prompt: () => 'Look at the West Cork page', action: 'westcork' },
       { id: 'home', pos: new THREE.Vector3(9, 0, 13), r: 2.4, prompt: () => "Go home to Liev's room", action: 'home' },
+      { id: 'cove', pos: easelFront, r: 1.8, prompt: () => "Step into the painting: Liev's Cozy Cove", action: 'travel', dest: 'cove' },
     ],
     goals,
     update(dt, ctx) {

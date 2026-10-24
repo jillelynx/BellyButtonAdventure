@@ -18,6 +18,9 @@ const THEMES = {
   pacific: { bpm: 120, root: 62, lead: 'triangle',   // brave and sunny, a little like a ukulele march
     mel: [0, null, 4, 7, 9, null, 7, null, 4, null, 2, 4, 7, null, null, null, 9, null, 7, 4, 12, null, 11, null, 9, 7, 4, null, 2, null, null, null],
     bass: [0, null, 7, null, 5, null, 7, null, 0, null, 7, null, -5, null, 2, null] },
+  cove: { bpm: 72, root: 64, lead: 'sine',   // slow and dreamy, like a lullaby by the sea
+    mel: [7, null, null, 4, 9, null, 7, null, 4, null, 2, null, 4, null, null, null, 7, null, 9, null, 11, null, 9, 7, 4, null, null, 2, 0, null, null, null],
+    bass: [0, null, null, null, -3, null, null, null, -7, null, null, null, -5, null, null, null] },
   platformer: { bpm: 126, root: 67, lead: 'square',
     mel: [0, null, 4, 7, 12, null, 7, null, 9, null, 5, 9, 12, null, 9, null, 7, null, 4, 7, 11, null, 7, null, 5, 4, 2, null, 0, null, null, null],
     bass: [0, 0, 7, 7, 5, 5, 0, 0, -1, -1, 4, 4, 5, 5, 7, 7] },
@@ -112,11 +115,17 @@ export class AudioSys {
     this.ambKind = kind;
     if (!this.ctx) return;
     if (this.ambSrc) { try { this.ambSrc.stop(); } catch (_) { /* ignore */ } this.ambSrc = null; }
+    if (this.ambLfo) { try { this.ambLfo.stop(); } catch (_) { /* ignore */ } this.ambLfo = null; }
     if (!kind) return;
     const c = this.ctx; const s = c.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true;
     const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = kind === 'room' ? 350 : 800;
     const g = c.createGain(); g.gain.value = kind === 'room' ? 0.05 : 0.06;
     s.connect(f); f.connect(g); g.connect(this.bus.ambience); s.start(); this.ambSrc = s;
+    if (kind === 'shore') { // waves: a slow swell in loudness and brightness
+      g.gain.value = 0.07; f.frequency.value = 600;
+      const lfo = c.createOscillator(), lg = c.createGain(), lf = c.createGain(); lfo.frequency.value = 0.11; lg.gain.value = 0.05; lf.gain.value = 350;
+      lfo.connect(lg); lg.connect(g.gain); lfo.connect(lf); lf.connect(f.frequency); lfo.start(); this.ambLfo = lfo;
+    }
   }
   tick() {
     const c = this.ctx; if (!c || !this.theme) return;
@@ -130,7 +139,7 @@ export class AudioSys {
       if (i % 2 === 0) { const b = th.bass[(i / 2) % th.bass.length]; if (b !== null) this.tone(midi(th.root - 24 + b), this.nextTime, stepDur * 3.5, { type: 'sine', gain: 0.16, bus: 'music', attack: 0.03 }); }
       this.step++; this.nextTime += stepDur;
     }
-    if (this.ambKind === 'outdoor' && Math.random() < 0.03) { // soft birdsong
+    if ((this.ambKind === 'outdoor' || this.ambKind === 'shore') && Math.random() < 0.03) { // soft birdsong
       const t = c.currentTime + Math.random() * 0.2, f = 2200 + Math.random() * 1500;
       this.tone(f, t, 0.08, { gain: 0.03, bus: 'ambience', slideTo: f * 1.3 }); this.tone(f * 1.1, t + 0.11, 0.08, { gain: 0.025, bus: 'ambience', slideTo: f * 0.9 });
     }

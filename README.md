@@ -38,6 +38,13 @@ Three parts in a row:
 - **Submarine:** arrows steer · X fires a torpedo · stop inside seaweed to hide · rise near the top to hit ships · red buoys repair the sub.
 - **Fighter plane:** ↑ nose up · ↓ nose down · → more power · ← less power · X fires · G puts the wheels up or down. Too slow and the plane stalls. To land on the carrier: stop 6 planes first, then wheels down, slow, and gentle.
 
+## Liev's Cozy Cove (3D sandbox)
+Step into the painting on the easel in Belly Button's World.
+- Walk and run as usual · **T** changes the time of day · **E** uses things (toast a marshmallow, rest in the hammock, watch the sunset)
+- In deep water you swim: **Space** swims up, **X** dives down to the reef
+- Press **H** for a hint to the next special place (5 to find)
+- Press **F** to see how smoothly it runs. If it's slow, Settings → Graphics → Fast
+
 ## Project files
 - Story and design: `docs/CONCEPT.md` · Look: `docs/VISUAL_DIRECTION.md` · Tech plan: `docs/FEASIBILITY.md`
 - Decisions, plan and checklists: `docs/PROJECT_RECORD.md`

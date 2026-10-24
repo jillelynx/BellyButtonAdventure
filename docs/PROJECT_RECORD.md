@@ -40,6 +40,8 @@
 | A33 | In France 1944 Liev can carry a **pistol, rifle and grenades** and switch between them | Message, 2026-10-23 |
 | A35 | **South Pacific** level: a pixel level in 3 parts (island on foot, submarine, airplane battle), built right away, before the 3D Liev | Answers, 2026-10-24 |
 | A36 | German soldiers in France 1944 wear a plain **red shoulder patch** | Message, 2026-10-24 |
+| A37 | A **cozy 3D sandbox** for Liev, matching your reference pictures (reef, sunset beach, meadow, pine forest, campfire, waterfall); start with one small polished area to judge beauty and speed | Message, 2026-10-24 |
+| A38 | Rebuild 3D Liev in **Blender first**, matched to your animated reference picture; if it doesn't look right, you'll try Meshy/Tripo + Mixamo | Message, 2026-10-24 |
 | A34 | Shooting is okay but **no blood**, appropriate for a middle schooler (earlier: cartoon action, defeated soldiers get dizzy and surrender, no hate symbols) | Message, 2026-10-23 |
 
 ## 2. My suggestions, not yet approved
@@ -114,6 +116,16 @@
 - [x] Part 3, fighter plane (simple flight simulator): nose up/down, power, stalls when too slow, hide in clouds, stop 6 enemy planes (pilots parachute out), flak rings, then land on the carrier with wheels down, slow and gentle — *automated checks passed*
 - [x] Battles are vehicle against vehicle (no people shown fighting); enemy planes and ships carry a red circle so you can tell them apart; no blood
 - [ ] Your check: is the landing too hard for Liev? (speed and angle limits are easy to loosen)
+
+### Liev's Cozy Cove (3D sandbox, first area) ✅ delivered 2026-10-24 for your review
+- [x] Reached through a painting on an easel in Belly Button's World (and from the admin panel); a painting in the cove takes you back
+- [x] Beach and turquoise lagoon with a swimmable coral reef: brain coral, branching coral, sea fans, sponges, starfish, seagrass, 4 schools of fish that scatter when you swim close, and a sea turtle — *automated checks passed*
+- [x] Swimming: deep water floats you; X dives, Space swims up, can't pass through the sea floor; Belly Button swims along — *automated checks passed*
+- [x] Meadow of short grass (about 21,000 blades that sway and bend away from your feet) and wildflower patches; clear dirt paths
+- [x] Pine grove with fallen logs and stumps (solid, can hop on, and the camera won't see through them, good for hide and seek), ferns, mushrooms, campfire with flickering light, embers and a marshmallow to toast — *automated checks passed*
+- [x] Rocky headland with a waterfall, mist, a spring pond and a Sunset Lookout bench; wooden pier to jump off; hammock
+- [x] Time of day with T: golden hour, sunny day, starry night (stars, northern lights, fireflies); fog and haze; layered faraway mountains
+- [ ] Your check: how it looks and how smooth it runs on your Mac (press F for the speed meter). If it's slow, Settings → Graphics → Fast uses fewer plants and softer shadows.
 
 ### Milestone 3 — First complete loop: West Cork (Beara Peninsula) — now after France 1944
 One real place fully built with landmarks (green fields, mountains, rocky beach, soccer pitch), 2 platformer levels, Treasure Stamps, hints, ambient sounds, autosave, gentle world edges.

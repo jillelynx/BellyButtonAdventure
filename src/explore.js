@@ -4,10 +4,11 @@ import { Input } from './input.js';
 import { buildCharacter, friendOf } from './characters/index.js';
 import { buildBedroom } from './areas/bedroom.js';
 import { buildBBWorld } from './areas/bbworld.js';
+import { buildCove } from './areas/cove.js';
 import { clamp, damp, dampAngle, angleDiff } from './util.js';
 
-const AREA_BUILDERS = { bedroom: buildBedroom, bbworld: buildBBWorld };
-const G = 18, JUMP_V = 6.4, WALK = 3.4, RUN = 6.2, STEP = 0.42;
+const AREA_BUILDERS = { bedroom: buildBedroom, bbworld: buildBBWorld, cove: buildCove };
+const G = 18, JUMP_V = 6.4, WALK = 3.4, RUN = 6.2, STEP = 0.42, SWIM = 2.5, SWIM_FAST = 3.9;
 
 export class Explore {
   constructor(game) {
@@ -21,7 +22,7 @@ export class Explore {
     this.tmpV = new THREE.Vector3(); this.tmpD = new THREE.Vector3();
   }
   get scene() { return this.area.scene; }
-  getArea(name) { if (!this.areas[name]) this.areas[name] = AREA_BUILDERS[name](); return this.areas[name]; }
+  getArea(name) { if (!this.areas[name]) this.areas[name] = AREA_BUILDERS[name](this.g); return this.areas[name]; }
 
   enter(opts = {}) {
     const s = this.g.saves.explore;
@@ -36,7 +37,8 @@ export class Explore {
   exit() { this.saveNow(); this.g.ui.prompt(null); this.g.ui.edge(null); }
   helpText() {
     const bb = this.g.choice.player === 'bellybutton';
-    return `<span class="key">W A S D</span> walk · <span class="key">Shift</span> run · <span class="key">Space</span> jump${bb ? ' (hold to float)' : ''} · <span class="key">E</span> use · <span class="key">C</span> swap friend · drag or swipe to look`;
+    const extra = this.area && this.area.helpExtra ? ' · ' + this.area.helpExtra : '';
+    return `<span class="key">W A S D</span> walk · <span class="key">Shift</span> run · <span class="key">Space</span> jump${bb ? ' (hold to float)' : ''} · <span class="key">E</span> use · <span class="key">C</span> swap friend · drag or swipe to look${extra}`;
   }
   buildChars() {
     for (const c of [this.pc, this.fc]) if (c) { c.root.removeFromParent(); c.dispose(); }
@@ -69,6 +71,7 @@ export class Explore {
     this.f.pos.y = this.groundAt(this.f.pos.x, this.f.pos.z, 99, this.f.radius, true);
     this.collide(this.f.pos, this.f.radius, this.f.pos.y, false);
     this.f.yaw = p.yaw; this.f.vy = 0;
+    p.swimming = false; this.f.swimming = false;
     this.cam.yaw = p.yaw + Math.PI; this.cam.cur = Math.min(this.cam.dist, a.maxCamDist || 7);
     this.g.audio.music(a.music); this.g.audio.ambience(a.ambience);
     const s = this.g.saves.explore; s.area = name; this.saveNow();
@@ -124,8 +127,26 @@ export class Explore {
     }
     return msg;
   }
+  // Swimming: in water deeper than about chest height you float at the surface.
+  // Space swims up, X (or Z) dives down. No air meter: this is a cozy game.
+  swimY(body, dt, char, ground) {
+    const wl = this.area.waterLevel; if (wl === undefined) return false;
+    const floatY = wl - char.height * 0.62;
+    const deep = ground < floatY - 0.05;
+    if (!deep || (!body.swimming && body.pos.y > floatY + 0.02)) { body.swimming = false; return false; }
+    if (!body.swimming) { body.swimming = true; if (body.vy < -3) { this.g.audio.sfx('splash'); this.area.splash && this.area.splash(body.pos); } body.vy *= 0.25; }
+    let vyT;
+    if (body === this.p) vyT = Input.key('Space') ? 2.4 : Input.key('KeyX', 'KeyZ', 'ControlLeft') ? -2.4 : (body.pos.y < floatY - 0.05 ? 0.8 : 0);
+    else { const ty = this.p.swimming ? Math.min(this.p.pos.y, floatY) : floatY; vyT = clamp((ty - body.pos.y) * 2, -2.4, 2.4); }
+    body.vy = damp(body.vy, vyT, 5, dt); body.pos.y += body.vy * dt;
+    if (body.pos.y > floatY) { body.pos.y = floatY; if (body.vy > 0) body.vy = 0; }
+    if (body.pos.y < ground + 0.05) { body.pos.y = ground + 0.05; body.vy = Math.max(0, body.vy); }
+    body.onGround = false;
+    return true;
+  }
   physicsY(body, dt, char) {
     const ground = this.groundAt(body.pos.x, body.pos.z, body.pos.y, body.radius);
+    if (this.swimY(body, dt, char, ground)) return;
     if (body.onGround && body.vy <= 0 && body.pos.y - ground < STEP && body.pos.y - ground > -STEP) { body.pos.y = ground; body.vy = 0; return; }
     body.vy -= G * dt; body.pos.y += body.vy * dt;
     if (body.pos.y <= ground) {
@@ -144,13 +165,18 @@ export class Explore {
       else this.updatePlayer(dt);
       this.updateFriend(dt);
       if (!this.cut) this.updateInteract();
-      a.update(dt, { player: p, friend: f, time: this.time, stamps: this.g.saves.platformer.stamps, doorsFound: this.g.saves.explore.doorsFound });
+      if (a.keys) for (const k in a.keys) if (Input.hit(k)) a.keys[k](this);
+      a.update(dt, { player: p, friend: f, time: this.time, camera: this.camera, explore: this, stamps: this.g.saves.platformer.stamps, doorsFound: this.g.saves.explore.doorsFound });
       this.saveT += dt; if (this.saveT > 4) { this.saveT = 0; this.saveNow(); }
     }
     if (!this.cut) this.updateCamera(dt, paused);
     // Place and animate characters.
     for (const [c, b] of [[this.pc, p], [this.fc, f]]) {
-      c.root.position.copy(b.pos); c.root.rotation.y = b.yaw;
+      c.root.position.copy(b.pos); c.root.rotation.order = 'YXZ'; c.root.rotation.y = b.yaw;
+      // Swimming: lean forward (more when diving) and bob gently at the surface.
+      const lean = b.swimming ? (b.vy < -0.6 ? 0.95 : b.speed > 0.5 ? 0.55 : 0.12) : 0;
+      c.root.rotation.x = damp(c.root.rotation.x, lean, 6, dt);
+      if (b.swimming) c.root.position.y += Math.sin(this.time * 2.2 + (b === p ? 0 : 1.7)) * 0.035;
       if (!paused) c.animate(dt, { speed: b.speed, onGround: b.onGround, floating: b.floating, cheer: b.cheer });
     }
     ui.update(paused ? 0 : dt);
@@ -164,8 +190,9 @@ export class Explore {
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
     let dx = rx * ax.x + fx * ax.y, dz = rz * ax.x + fz * ax.y;
     const l = Math.hypot(dx, dz); if (l > 1) { dx /= l; dz /= l; }
-    const max = Input.key('ShiftLeft', 'ShiftRight') ? RUN : WALK;
-    const k = p.onGround ? 14 : 5;
+    const fast = Input.key('ShiftLeft', 'ShiftRight');
+    const max = p.swimming ? (fast ? SWIM_FAST : SWIM) : fast ? RUN : WALK;
+    const k = p.onGround ? 14 : p.swimming ? 4 : 5;
     p.vel.x = damp(p.vel.x, dx * max, k, dt); p.vel.y = damp(p.vel.y, dz * max, k, dt);
     if (l > 0.1) p.yaw = dampAngle(p.yaw, Math.atan2(dx, dz), 12, dt);
     // Jump with forgiving timing (coyote time + jump buffer).
@@ -193,6 +220,7 @@ export class Explore {
       f.pos.set(tx, 0, tz); this.collide(f.pos, f.radius, 99, false); f.pos.y = this.groundAt(f.pos.x, f.pos.z, 99, f.radius, true); f.vy = 0; return;
     }
     let speed = d > 4 ? RUN : d > 0.5 ? WALK * Math.min(1, d / 1.4) : 0;
+    if (f.swimming) speed = Math.min(speed, SWIM_FAST);
     let vx = d > 1e-3 ? dx / d * speed : 0, vz = d > 1e-3 ? dz / d * speed : 0;
     // Step out of the way if you walk into them.
     if (distP < 1.3 && d > 0.5) { // you're in the way: curve around you instead of pushing
@@ -233,6 +261,8 @@ export class Explore {
     else if (it.action === 'door') g.enterDoor(it.door, { area: this.area.name, pos: this.area.doors.find(d => d.id === it.door).front.clone(), yaw: Math.PI });
     else if (it.action === 'westcork') { g.ui.toast("This page isn't colored in yet. West Cork opens in the next update!", 4); g.audio.sfx('paper'); }
     else if (it.action === 'home') g.travel('home');
+    else if (it.action === 'travel') g.travel(it.dest);
+    else if (it.action === 'fn') it.fn(this);
   }
 
   startMapMagic() {
