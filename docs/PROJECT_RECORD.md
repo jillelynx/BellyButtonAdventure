@@ -127,6 +127,15 @@
 - [x] Time of day with T: golden hour, sunny day, starry night (stars, northern lights, fireflies); fog and haze; layered faraway mountains
 - [ ] Your check: how it looks and how smooth it runs on your Mac (press F for the speed meter). If it's slow, Settings → Graphics → Fast uses fewer plants and softer shadows.
 
+### Version 0.7: new 3D Liev, real sunsets, stargazing, swim gear ✅ delivered 2026-10-24
+- [x] Liev rebuilt in Blender (tools/blender/build_liev.py → assets/models/liev.glb) to match your animated reference: oval face, big brown eyes, thick brows, freckles, lopsided smile, spiky brown hair; real bones for walking, running, jumping, climbing, kicking, cheering and swimming
+- [x] All outfits (play clothes with black shorts, soccer #12, army camo), both hairstyles (everyday spikes, styled-up with faded side and lighter-brown bolt on the left) and the captain's hat still work; the classic Liev is used automatically if the model can't load
+- [x] Cozy Cove: the sun really moves, setting over the sea and rising again (a full day is 16 minutes; T fast-forwards to the next time of day)
+- [x] Stargazing (G at night, or the Lookout bench): look all around the sky and find 7 real constellations that move through the night
+- [x] Bioluminescent plankton glow where waves break and where you swim at night
+- [x] Liev wears a snorkel at the surface and switches to scuba gear as soon as he dives
+- [ ] Your check: does the new Liev look like Liev? If not, the next step is Meshy/Tripo + Mixamo (your plan B)
+
 ### Milestone 3 — First complete loop: West Cork (Beara Peninsula) — now after France 1944
 One real place fully built with landmarks (green fields, mountains, rocky beach, soccer pitch), 2 platformer levels, Treasure Stamps, hints, ambient sounds, autosave, gentle world edges.
 

@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { makeCanvas, toTexture } from '../textures.js';
 import { rng } from '../util.js';
+import { Input } from '../input.js';
 
 export const WL = 0;                      // water level
 const SIZE = 180, N = 240;                // terrain: 180 m square, 0.75 m between points
@@ -25,8 +26,34 @@ const PATHS = [
   [[4, 3], [11, 4.5], [17, 4.6], [22, 6.5]],
   [[-31, 0], [-27.5, 1.6]],
 ];
-const TIMES = ['sunset', 'day', 'night'];
-const TIME_NAMES = { sunset: 'Golden hour', day: 'Sunny day', night: 'Starry night' };
+// The day goes round: the sun really rises over the sea in the south-east and sets over the sea in the south-west.
+const DAY_SECONDS = 16 * 60;                          // one full day = 16 real minutes
+const PHASES = [['sunset', 17.9, 'Golden hour'], ['night', 22.5, 'Starry night'], ['sunrise', 6.3, 'Sunrise'], ['day', 12.5, 'Sunny day']];
+const sunDirAt = (hour, out = new THREE.Vector3()) => { const a = (hour - 6) / 12 * Math.PI; return out.set(Math.cos(a) * 0.62, Math.sin(a) * 0.9, 0.78 + 0.1 * Math.max(0, Math.sin(a))).normalize(); };
+// Real stars for stargazing (right ascension in hours, declination in degrees) and the lines that join them.
+const CONSTELLATIONS = [
+  { id: 'bigdipper', name: 'the Big Dipper', fact: 'It is part of Ursa Major, the Great Bear. The two stars at the end of the cup point to Polaris, the North Star.',
+    stars: [[11.062, 61.75], [11.031, 56.38], [11.897, 53.69], [12.257, 57.03], [12.900, 55.96], [13.399, 54.93], [13.792, 49.31]], lines: [[0, 1], [1, 2], [2, 3], [3, 0], [3, 4], [4, 5], [5, 6]] },
+  { id: 'littledipper', name: 'the Little Dipper', fact: 'Polaris, the North Star, is at the end of its handle. It stays almost still while every other star circles around it.',
+    stars: [[2.530, 89.26], [17.537, 86.59], [16.766, 82.04], [15.734, 77.79], [16.292, 75.76], [15.345, 71.83], [14.845, 74.16]], lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 3]] },
+  { id: 'cassiopeia', name: 'Cassiopeia', fact: 'The queen is shaped like a big W. She sits on the other side of Polaris from the Big Dipper.',
+    stars: [[0.153, 59.15], [0.675, 56.54], [0.945, 60.72], [1.430, 60.24], [1.907, 63.67]], lines: [[0, 1], [1, 2], [2, 3], [3, 4]] },
+  { id: 'cygnus', name: 'Cygnus, the Swan', fact: 'Also called the Northern Cross. Its brightest star, Deneb, is much farther away and much brighter than our Sun.',
+    stars: [[20.690, 45.28], [20.370, 40.26], [20.770, 33.97], [19.750, 45.13], [19.512, 27.96]], lines: [[0, 1], [1, 4], [3, 1], [1, 2]] },
+  { id: 'triangle', name: 'the Summer Triangle', fact: 'Three bright stars from three different constellations: Vega, Deneb and Altair.',
+    stars: [[18.616, 38.78], [20.690, 45.28], [19.846, 8.87]], lines: [[0, 1], [1, 2], [2, 0]] },
+  { id: 'pegasus', name: 'the Great Square of Pegasus', fact: 'The body of Pegasus, the winged horse. It rides high in the sky on autumn evenings.',
+    stars: [[23.079, 15.21], [23.063, 28.08], [0.140, 29.09], [0.220, 15.18]], lines: [[0, 1], [1, 2], [2, 3], [3, 0]] },
+  { id: 'orion', name: 'Orion, the Hunter', fact: 'Orion rises late on autumn nights. Red Betelgeuse and blue-white Rigel are two of the brightest stars in the sky.',
+    stars: [[5.919, 7.41], [5.418, 6.35], [5.679, -1.94], [5.604, -1.20], [5.533, -0.30], [5.796, -9.67], [5.242, -8.20]], lines: [[0, 1], [0, 2], [1, 4], [2, 3], [3, 4], [2, 5], [4, 6]] },
+];
+const LAT = 40 * Math.PI / 180;   // Pennsylvania-ish
+const starDir = (raH, decD, lst, out = new THREE.Vector3()) => {
+  const H = (lst - raH) / 24 * Math.PI * 2, d = decD * Math.PI / 180;
+  const alt = Math.asin(Math.sin(d) * Math.sin(LAT) + Math.cos(d) * Math.cos(LAT) * Math.cos(H));
+  const az = Math.atan2(-Math.sin(H) * Math.cos(d), Math.sin(d) * Math.cos(LAT) - Math.cos(d) * Math.sin(LAT) * Math.cos(H));   // from north, toward east
+  return out.set(Math.cos(alt) * Math.sin(az), Math.sin(alt), -Math.cos(alt) * Math.cos(az));
+};
 const PRESETS = {
   sunset: { zen: '#3B5BA5', hor: '#F7A56F', gnd: '#D08F74', sunCol: '#FFB27A', sunDir: [-0.55, 0.11, 0.83], sunI: 2.5, light: '#FFD2A6', hemiS: '#FFE4CC', hemiG: '#6E8060', hemiI: 1.15,
     fog: '#E9A98A', fogD: 0.0062, shallow: '#62D9CF', deep: '#13608E', mtn: ['#6C5A8C', '#93739C', '#BC8FA2'], fire: 0.45, night: 0, cloud: 1, motes: 0.9, under: '#1C7F9C' },
@@ -207,19 +234,29 @@ export function buildCove(game) {
   const occupy = (x, z, r) => occupied.push({ x, z, r });
 
   // ---------------- Sky, sun and fog ----------------
-  const cur = {}; const lerpPreset = (name, k) => {
-    const P = PRESETS[name];
-    for (const key of ['zen', 'hor', 'gnd', 'sunCol', 'light', 'hemiS', 'hemiG', 'fog', 'shallow', 'deep', 'under']) { if (!cur[key]) cur[key] = C(P[key]); else cur[key].lerp(C(P[key]), k); }
-    for (const key of ['sunI', 'hemiI', 'fogD', 'fire', 'night', 'cloud', 'motes']) cur[key] = cur[key] === undefined ? P[key] : cur[key] + (P[key] - cur[key]) * k;
-    const sd = new THREE.Vector3(...P.sunDir).normalize(); cur.sunDir = cur.sunDir ? cur.sunDir.lerp(sd, k).normalize() : sd;
-    cur.mtn = P.mtn.map((h, i) => (cur.mtn ? cur.mtn[i].lerp(C(h), k) : C(h)));
+  const cur = { sunDir: new THREE.Vector3(), moonDir: new THREE.Vector3(), lightDir: new THREE.Vector3(), lightCol: new THREE.Color() };
+  const PC = {}; for (const k of Object.keys(PRESETS)) PC[k] = Object.fromEntries(Object.entries(PRESETS[k]).map(([kk, v]) => [kk, typeof v === 'string' ? C(v) : Array.isArray(v) && typeof v[0] === 'string' ? v.map(C) : v]));
+  let hour = 17.6, ffTarget = null;
+  // Colors and light come from where the sun is: day high up, golden near the horizon, night below it.
+  const blend = () => {
+    sunDirAt(hour, cur.sunDir); cur.moonDir.set(-cur.sunDir.x, -cur.sunDir.y, cur.sunDir.z);
+    const e = cur.sunDir.y, w = 1 - sstep(0.06, 0.4, e), n = sstep(0.0, -0.2, e), D = PC.day, S = PC.sunset, N8 = PC.night;
+    for (const key of ['zen', 'hor', 'gnd', 'sunCol', 'light', 'hemiS', 'hemiG', 'fog', 'shallow', 'deep', 'under']) { if (!cur[key]) cur[key] = new THREE.Color(); cur[key].copy(D[key]).lerp(S[key], w).lerp(N8[key], n); }
+    for (const key of ['sunI', 'hemiI', 'fogD', 'fire', 'night', 'cloud', 'motes']) cur[key] = (D[key] + (S[key] - D[key]) * w) * (1 - n) + N8[key] * n;
+    if (!cur.mtn) cur.mtn = [0, 1, 2].map(() => new THREE.Color());
+    cur.mtn.forEach((c, i) => c.copy(D.mtn[i]).lerp(S.mtn[i], w).lerp(N8.mtn[i], n));
+    const sunAmt = sstep(-0.02, 0.1, e), moonAmt = sstep(-0.04, -0.22, e);
+    cur.lightI = (D.sunI + (S.sunI - D.sunI) * w) * sunAmt + 1.0 * moonAmt;
+    if (sunAmt >= moonAmt) { cur.lightDir.copy(cur.sunDir); cur.lightCol.copy(cur.light); } else { cur.lightDir.copy(cur.moonDir); cur.lightCol.set('#A8C0FF'); }
+    cur.sunUp = sunAmt; cur.moonUp = moonAmt;
   };
-  let timeName = 'sunset'; lerpPreset(timeName, 1);
+  const phaseName = () => { const e = sunDirAt(hour).y; return e < -0.12 ? 'night' : e < 0.3 ? (hour < 12 ? 'sunrise' : 'sunset') : 'day'; };
+  blend();
 
   const skyMat = new THREE.ShaderMaterial({
-    uniforms: { uZen: { value: cur.zen }, uHor: { value: cur.hor }, uGnd: { value: cur.gnd }, uSunDir: { value: cur.sunDir }, uSunCol: { value: cur.sunCol }, uNight: { value: 0 }, uTime: U.uTime, uCloud: { value: 1 } },
+    uniforms: { uZen: { value: cur.zen }, uHor: { value: cur.hor }, uGnd: { value: cur.gnd }, uSunDir: { value: cur.sunDir }, uMoonDir: { value: cur.moonDir }, uSunCol: { value: cur.sunCol }, uNight: { value: 0 }, uTime: U.uTime, uCloud: { value: 1 }, uSunUp: { value: 1 } },
     vertexShader: `varying vec3 vDir; void main() { vDir = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }`,
-    fragmentShader: `uniform vec3 uZen, uHor, uGnd, uSunDir, uSunCol; uniform float uNight, uTime, uCloud; varying vec3 vDir;
+    fragmentShader: `uniform vec3 uZen, uHor, uGnd, uSunDir, uMoonDir, uSunCol; uniform float uNight, uTime, uCloud, uSunUp; varying vec3 vDir;
       float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float h31(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
       float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
@@ -228,8 +265,11 @@ export function buildCove(game) {
         vec3 d = normalize(vDir); float h = d.y;
         vec3 col = h > 0.0 ? mix(uHor, uZen, pow(smoothstep(0.0, 0.6, h), 0.75)) : mix(uHor, uGnd, smoothstep(0.0, -0.12, h));
         float sd = max(dot(d, uSunDir), 0.0);
-        col += uSunCol * (pow(sd, 5.0) * 0.28 + pow(sd, 48.0) * 0.5) * (1.0 - uNight * 0.75);
-        col += uSunCol * smoothstep(0.9986, 0.9993, sd) * mix(4.0, 1.3, uNight);
+        float above = smoothstep(-0.03, 0.01, h);
+        col += uSunCol * (pow(sd, 5.0) * 0.28 + pow(sd, 48.0) * 0.5) * (0.25 + 0.75 * uSunUp);
+        col += uSunCol * smoothstep(0.9986, 0.9993, sd) * 4.0 * above;                        // the sun
+        float md = max(dot(d, normalize(uMoonDir)), 0.0);
+        col += vec3(0.85, 0.9, 1.0) * (smoothstep(0.9988, 0.9994, md) * 1.6 + pow(md, 60.0) * 0.12) * uNight * above;   // the moon
         if (h > 0.0) {
           vec2 cp = d.xz / (h + 0.14) * 1.3 + vec2(uTime * 0.006, uTime * 0.002);
           float c = fbm(cp); c = smoothstep(0.5, 0.78, c) * smoothstep(0.0, 0.06, h) * (1.0 - smoothstep(0.32, 0.7, h));
@@ -244,7 +284,9 @@ export function buildCove(game) {
             float curtain = pow(0.5 + 0.5 * sin(d.x * 13.0 + a * 7.0 + uTime * 0.22), 3.0);
             col += vec3(0.12, 0.95, 0.58) * curtain * band * north * uNight * (0.45 + 0.55 * a);
             col += vec3(0.45, 0.2, 0.75) * band * north * uNight * 0.18 * smoothstep(0.25, 0.5, h);
-            col += vec3(0.04, 0.08, 0.16) * uNight * pow(1.0 - abs(d.x * 0.6 - d.z * 0.3), 6.0) * smoothstep(0.0, 0.5, h);   // a faint milky way
+            float mw = pow(max(0.0, 1.0 - abs(d.x * 0.8 - d.z * 0.45 + d.y * 0.2) * 2.2), 3.0) * (0.5 + 0.8 * fbm(d.xz * 9.0 + d.y * 3.0));
+            col += vec3(0.05, 0.07, 0.12) * uNight * mw * smoothstep(0.02, 0.3, h);   // a faint, cloudy Milky Way
+            vec3 sp2 = floor(d * 520.0); col += vec3(step(0.9975, h31(sp2 + 7.0)) * 0.55 * uNight * smoothstep(0.03, 0.25, h) * (1.0 - c));   // more, fainter stars
           }
         }
         gl_FragColor = vec4(col, 1.0);
@@ -256,7 +298,7 @@ export function buildCove(game) {
   const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 48, 24), skyMat); sky.frustumCulled = false; sky.renderOrder = -10; scene.add(sky);
 
   const hemi = new THREE.HemisphereLight(cur.hemiS, cur.hemiG, cur.hemiI); scene.add(hemi);
-  const sun = new THREE.DirectionalLight(cur.light, cur.sunI);
+  const sun = new THREE.DirectionalLight(cur.light, cur.lightI);
   sun.castShadow = true; sun.shadow.mapSize.set(hi ? 2048 : 1024, hi ? 2048 : 1024);
   Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 160 });
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.05; scene.add(sun, sun.target);
@@ -326,7 +368,7 @@ export function buildCove(game) {
   const heightTex = new THREE.DataTexture(hdata, HT, HT); heightTex.magFilter = heightTex.minFilter = THREE.LinearFilter; heightTex.needsUpdate = true;
   const waterU = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]);
   Object.assign(waterU, { uTime: U.uTime, uWL: U.uWL, uHeight: { value: heightTex }, uRect: { value: new THREE.Vector4(-HALF, -HALF, SIZE, SIZE) },
-    uSunDir: { value: cur.sunDir }, uSunCol: { value: cur.sunCol }, uSkyH: { value: cur.hor }, uSkyZ: { value: cur.zen }, uShallow: { value: cur.shallow }, uDeep: { value: cur.deep }, uSunI: { value: 1 } });
+    uSunDir: { value: cur.lightDir }, uSunCol: { value: cur.lightCol }, uSkyH: { value: cur.hor }, uSkyZ: { value: cur.zen }, uShallow: { value: cur.shallow }, uDeep: { value: cur.deep }, uSunI: { value: 1 }, uNight: { value: 0 }, uPlayer: U.uPlayer, uFriend: { value: new THREE.Vector3(0, -99, 0) } });
   const waterMat = new THREE.ShaderMaterial({
     uniforms: waterU, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: true,
     vertexShader: `#include <fog_pars_vertex>
@@ -339,7 +381,7 @@ export function buildCove(game) {
       }`,
     fragmentShader: `#include <common>
       #include <fog_pars_fragment>
-      uniform float uTime, uWL, uSunI; uniform sampler2D uHeight; uniform vec4 uRect; uniform vec3 uSunDir, uSunCol, uSkyH, uSkyZ, uShallow, uDeep; varying vec3 vW;
+      uniform float uTime, uWL, uSunI, uNight; uniform vec3 uPlayer, uFriend; uniform sampler2D uHeight; uniform vec4 uRect; uniform vec3 uSunDir, uSunCol, uSkyH, uSkyZ, uShallow, uDeep; varying vec3 vW;
       float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
       float rip(vec2 p) { return vn(p * 1.5 + vec2(uTime * 0.35, uTime * 0.2)) * 0.5 + vn(p * 3.2 - vec2(uTime * 0.25, -uTime * 0.4)) * 0.33 + vn(p * 7.0 + uTime * 0.6) * 0.17; }
@@ -361,9 +403,25 @@ export function buildCove(game) {
           float foamEdge = 0.28 + 0.1 * sin(uTime * 1.3 + vW.x * 0.7 + vW.z * 0.4);
           float foam = (1.0 - smoothstep(0.0, foamEdge, depth)) * (0.55 + 0.45 * vn(vW.xz * 3.0 + uTime * 0.8));
           foam += (1.0 - smoothstep(0.0, 0.08, abs(depth - 0.45 - 0.12 * sin(uTime * 0.9 + vW.x * 0.3)))) * 0.35 * vn(vW.xz * 4.0 - uTime);
-          col = mix(col, vec3(1.0), clamp(foam, 0.0, 1.0) * 0.85);
+          col = mix(col, vec3(1.0), clamp(foam, 0.0, 1.0) * 0.85 * (1.0 - uNight * 0.65));
+          // Bioluminescence at night: tiny glowing plankton light up where waves break and wherever someone swims.
+          float bioA = 0.0;
+          if (uNight > 0.01) {
+            float crest = clamp(foam, 0.0, 1.0);
+            float sparkle = pow(vn(vW.xz * 14.0 + vec2(uTime * 0.7, -uTime * 0.5)), 12.0) * 5.0;
+            float swell = 0.5 + 0.5 * sin(uTime * 1.6 + vW.x * 0.45 - vW.z * 0.3);
+            float wake = 0.0;
+            for (int k = 0; k < 2; k++) {
+              vec3 c = k == 0 ? uPlayer : uFriend;
+              float d = length(vW.xz - c.xz);
+              wake += (1.0 - smoothstep(0.2, 1.6, d)) * step(abs(c.y - uWL), 1.4) * (0.6 + 0.4 * sin(d * 9.0 - uTime * 6.0));
+            }
+            float glow = crest * (0.5 + 0.5 * swell) * (0.4 + sparkle) + wake * (0.6 + sparkle * 0.5) + sparkle * 0.04 * (1.0 - smoothstep(0.0, 3.0, depth));
+            col += vec3(0.04, 0.75, 1.0) * glow * 1.25 * uNight;
+            bioA = clamp(glow, 0.0, 1.0) * 0.9 * uNight;
+          }
           alpha = mix(0.45, 0.95, smoothstep(0.0, 5.0, depth));
-          alpha = max(alpha, fres * 0.85); alpha = max(alpha, clamp(foam, 0.0, 1.0) * 0.9);
+          alpha = max(alpha, fres * 0.85); alpha = max(alpha, clamp(foam, 0.0, 1.0) * 0.9); alpha = max(alpha, bioA);
         } else {   // looking up from under the water
           float sh = pow(r0, 3.0);
           col = mix(uDeep * 1.4, uShallow, 0.35) + uSunCol * sh * 0.5 * uSunI;
@@ -379,7 +437,7 @@ export function buildCove(game) {
   const water = new THREE.Mesh(waterGeo, waterMat); water.position.y = WL; water.renderOrder = 2; scene.add(water);
 
   // ---------------- Shared plant materials ----------------
-  const plantMat = (key, wind, extra = {}) => patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide, ...extra }), U, { wind, push: extra.push || 0, windSpeed: extra.windSpeed || 1.6, key });
+  const plantMat = (key, wind, extra = {}) => { const { push = 0, windSpeed = 1.6, ...matOpts } = extra; return patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide, ...matOpts }), U, { wind, push, windSpeed, key }); };
   const grassMat = patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide }), U, { wind: 0.07, push: 0.22, key: 'grass' });
   const solidMat = (key) => patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 }), U, { key });
   const flatMat = (key) => patch(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true }), U, { key });
@@ -756,11 +814,16 @@ export function buildCove(game) {
   interact.push(
     { id: 'campfire', pos: new THREE.Vector3(CAMPFIRE.x, 0, CAMPFIRE.z), r: 2.6, prompt: () => 'Toast a marshmallow', action: 'fn', fn: (ex) => { marshmallows++; ex.g.audio.sfx('collect'); ex.g.ui.toast(marshmallows === 1 ? '🔥 Toasty! A golden marshmallow. Belly Button wants one too.' : `🔥 Marshmallow number ${marshmallows}. Perfectly golden!`, 2.5); ex.p.cheer = 1; setTimeout(() => { ex.p.cheer = 0; }, 900); } },
     { id: 'hammock', pos: hamA.clone().lerp(hamB, 0.5), r: 2.2, prompt: () => 'Rest in the hammock', action: 'fn', fn: (ex) => { ex.g.audio.sfx('ui'); ex.g.ui.toast('😌 Swing, swing... the waves are so relaxing.', 3); } },
-    { id: 'bench', pos: new THREE.Vector3(LOOKOUT.x, 0, LOOKOUT.z), r: 2.2, prompt: () => 'Watch the sunset', action: 'fn', fn: (ex) => { setTime('sunset', ex); ex.cam.yaw = Math.atan2(-cur.sunDir.x, -cur.sunDir.z) + Math.PI; ex.cam.pitch = 0.12; ex.cam.manualT = 0; ex.g.ui.toast('🌅 What a view. Press T to see the stars come out.', 3.5); } },
+    { id: 'bench', pos: new THREE.Vector3(LOOKOUT.x, 0, LOOKOUT.z), r: 2.2, prompt: () => phaseName() === 'night' ? 'Lie back and stargaze' : 'Watch the sunset', action: 'fn', fn: (ex) => { if (phaseName() === 'night') { startStargaze(ex); return; } setTime('sunset', ex); const sd = sunDirAt(17.9); ex.cam.yaw = Math.atan2(-sd.x, -sd.z) + Math.PI; ex.cam.pitch = 0.12; ex.cam.manualT = 0; ex.g.ui.toast('🌅 Watch the sun sink into the sea. Press T to see the stars come out.', 3.5); } },
     { id: 'easel', pos: easelPos.clone().add(new THREE.Vector3(0.4, 0, -1.1)), r: 1.8, prompt: () => "Step into the painting (back to Belly Button's World)", action: 'travel', dest: 'bbworld' },
   );
 
-  const setTime = (name, ex, instant = false) => { timeName = name; if (instant) lerpPreset(name, 1); if (ex) { ex.g.ui.toast(`🕒 ${TIME_NAMES[name]}`, 1.8); ex.g.audio.sfx('paper'); } };
+  const setTime = (name, ex, instant = false) => {
+    const ph = PHASES.find(q => q[0] === name) || PHASES[0];
+    if (instant) { hour = ph[1]; ffTarget = null; blend(); } else ffTarget = ph[1];
+    if (ex) { ex.g.ui.toast(`🕒 ${ph[2]}${instant ? '' : '... watch the sky!'}`, 2); ex.g.audio.sfx('paper'); }
+  };
+  const nextPhase = () => { const order = PHASES.map(q => q[0]); const now = ffTarget !== null ? (PHASES.find(q => Math.abs(q[1] - ffTarget) < 0.01) || PHASES[0])[0] : phaseName(); return order[(order.indexOf(now) + 1) % order.length]; };
 
   // Camera: don't look through tree trunks, logs, rocks or the ground.
   const camLimit = (target, dir, dist) => {
@@ -778,17 +841,71 @@ export function buildCove(game) {
     return t;
   };
 
+  // ---------------- Stargazing: real constellations that move across the sky as the night goes on ----------------
+  const starGroup = new THREE.Group(); starGroup.renderOrder = -4; scene.add(starGroup);
+  const consData = CONSTELLATIONS.map(c => {
+    const pts = new Float32Array(c.stars.length * 3), seg = new Float32Array(c.lines.length * 6);
+    const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(seg, 3));
+    const pm = new THREE.PointsMaterial({ color: c.id === 'orion' ? '#FFE8D8' : '#F4F8FF', size: 3.2, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
+    const lm = new THREE.LineBasicMaterial({ color: '#9FD8FF', transparent: true, opacity: 0, fog: false, depthWrite: false });
+    const points = new THREE.Points(pg, pm), lines = new THREE.LineSegments(lg, lm); points.frustumCulled = lines.frustumCulled = false;
+    starGroup.add(points, lines);
+    return { c, pts, seg, pg, lg, pm, lm, center: new THREE.Vector3(), aim: 0 };
+  });
+  const tmpS = new THREE.Vector3();
+  const placeStars = () => {
+    const lst = (hour + 1.7) % 24;
+    for (const d of consData) {
+      d.center.set(0, 0, 0);
+      d.c.stars.forEach(([ra, dec], i) => { starDir(ra, dec, lst, tmpS); d.pts.set([tmpS.x * 360, tmpS.y * 360, tmpS.z * 360], i * 3); d.center.add(tmpS); });
+      d.center.normalize();
+      d.c.lines.forEach(([a, b], k) => { d.seg.set([d.pts[a * 3], d.pts[a * 3 + 1], d.pts[a * 3 + 2], d.pts[b * 3], d.pts[b * 3 + 1], d.pts[b * 3 + 2]], k * 6); });
+      d.pg.attributes.position.needsUpdate = true; d.lg.attributes.position.needsUpdate = true;
+    }
+  };
+  placeStars();
+  const foundCons = new Set(); let gaze = null; let lastPlaced = -1;
+  const startStargaze = (ex) => {
+    if (phaseName() !== 'night') { ex.g.ui.toast('✨ The stars come out at night. Press T until it is a starry night, then press G.', 3.5); return; }
+    if (ex.p.swimming) { ex.g.ui.toast('Float on your back later! Stand on dry land to stargaze.', 2.5); return; }
+    gaze = { yaw: Math.PI, pitch: 0.65 }; ex.pc.root.visible = false; ex.g.ui.prompt(null);
+    ex.g.onEsc = () => stopStargaze(ex);
+    ex.g.audio.sfx('magic');
+    ex.g.ui.toast('🔭 Stargazing! Drag or use the arrow keys to look around the sky. Center a constellation to learn about it. Press G or Esc to stop.', 5);
+  };
+  const stopStargaze = (ex) => { if (!gaze) return; ex.cam.yaw = gaze.yaw + Math.PI; ex.cam.pitch = 0.3; gaze = null; ex.pc.root.visible = true; ex.g.onEsc = null; ex.g.audio.sfx('ui'); };
+  const look = new THREE.Vector3();
+  const updateGaze = (dt, ex) => {
+    const sp = ex.g.settings.camSpeed || 1;
+    gaze.yaw -= (Input.drag.dx * 0.004 + Input.wheel.x * 0.003) * sp + ((Input.key('ArrowRight', 'KeyD') ? 1 : 0) - (Input.key('ArrowLeft', 'KeyA') ? 1 : 0)) * 1.1 * dt;
+    gaze.pitch = Math.max(-0.1, Math.min(1.55, gaze.pitch - (Input.drag.dy * 0.004 + Input.wheel.y * 0.003) * sp + ((Input.key('ArrowUp', 'KeyW') ? 1 : 0) - (Input.key('ArrowDown', 'KeyS') ? 1 : 0)) * 0.9 * dt));
+    ex.p.vel.set(0, 0); ex.p.speed = 0;
+    look.set(Math.sin(gaze.yaw) * Math.cos(gaze.pitch), Math.sin(gaze.pitch), Math.cos(gaze.yaw) * Math.cos(gaze.pitch));
+    const cam = ex.camera; cam.position.copy(ex.p.pos); cam.position.y += ex.pc.height * 0.92;
+    cam.lookAt(cam.position.x + look.x, cam.position.y + look.y, cam.position.z + look.z);
+    for (const d of consData) {
+      const ang = Math.acos(Math.min(1, look.dot(d.center)));
+      d.aim = ang < 0.2 && d.center.y > 0.05 ? 1 : 0;
+      if (d.aim && !foundCons.has(d.c.id)) { foundCons.add(d.c.id); ex.g.audio.sfx('found'); ex.g.ui.toast(`🌟 You found <b>${d.c.name}</b>! (${foundCons.size}/${CONSTELLATIONS.length})<br><span style="font-size:17px">${d.c.fact}</span>`, 6); }
+    }
+    if (phaseName() !== 'night') { ex.g.ui.toast('☀️ The sky is getting light. Good morning!', 2.5); stopStargaze(ex); }
+  };
+
   // ---------------- Every frame ----------------
   const fogNormal = new THREE.Color(), fogUnder = new THREE.Color(); let wasUnder = false, underTold = false;
   const update = (dt, ctx) => {
     const t = ctx.time, cam = ctx.camera, P = ctx.player;
     U.uTime.value = t; U.uPlayer.value.copy(P.pos);
-    lerpPreset(timeName, 1 - Math.exp(-dt * 1.6));
+    // Time passes: slowly on its own, quickly when fast-forwarding to the next time of day.
+    if (ffTarget !== null) { const left = ((ffTarget - hour) % 24 + 24) % 24; const step = Math.min(left, dt * 2.6); hour = (hour + step) % 24; if (left - step < 0.01) ffTarget = null; }
+    else hour = (hour + dt * 24 / DAY_SECONDS) % 24;
+    blend();
     // Sun follows the player so shadows stay sharp nearby.
-    sun.position.copy(P.pos).addScaledVector(cur.sunDir, 70); sun.target.position.copy(P.pos);
-    sun.color.copy(cur.light); sun.intensity = cur.sunI; hemi.color.copy(cur.hemiS); hemi.groundColor.copy(cur.hemiG); hemi.intensity = cur.hemiI;
-    skyMat.uniforms.uNight.value = cur.night; skyMat.uniforms.uCloud.value = cur.cloud; sky.position.copy(cam.position);
-    waterU.uSunI.value = Math.min(1, cur.sunI / 2.5) * (1 - cur.night * 0.6);
+    sun.position.copy(P.pos).addScaledVector(cur.lightDir, 70); sun.target.position.copy(P.pos);
+    sun.color.copy(cur.lightCol); sun.intensity = cur.lightI; hemi.color.copy(cur.hemiS); hemi.groundColor.copy(cur.hemiG); hemi.intensity = cur.hemiI;
+    skyMat.uniforms.uNight.value = cur.night; skyMat.uniforms.uSunUp.value = cur.sunUp; skyMat.uniforms.uCloud.value = cur.cloud; sky.position.copy(cam.position);
+    waterU.uSunI.value = Math.min(1, cur.lightI / 2.5); waterU.uNight.value = cur.night; waterU.uFriend.value.copy(ctx.friend.pos);
     mtnMats.forEach(m => { m.uniforms.uTop.value.copy(cur.mtn[m.userData.layer]); m.uniforms.uBot.value.copy(cur.hor); });
     // Under the water: blue-green haze, close fog, bubbles; above: normal air.
     const under = cam.position.y < WL + 0.02 && cam.position.distanceTo(P.pos) < 15;
@@ -797,6 +914,14 @@ export function buildCove(game) {
     U.uCaus.value = 0.6 + 0.4 * (1 - cur.night) * Math.min(1, cur.sunI);
     if (under && P.swimming && !wasUnder && !underTold) { underTold = true; ctx.explore.g.ui.toast('🐠 Underwater! Hold X to dive deeper, Space to swim up.', 3.5); }
     wasUnder = under;
+    // Real stars and constellation lines (lines show while stargazing).
+    starGroup.position.copy(cam.position);
+    if (Math.abs(hour - lastPlaced) > 0.02) { lastPlaced = hour; placeStars(); }
+    for (const d of consData) {
+      d.pm.opacity = cur.night * (gaze ? 1 : 0.85);
+      const target = gaze ? (d.aim ? 0.9 : foundCons.has(d.c.id) ? 0.45 : 0.14) : 0;
+      d.lm.opacity += (target * cur.night - d.lm.opacity) * Math.min(1, dt * 5);
+    }
     // Particles.
     const scale = window.innerHeight * 0.9;
     for (const p of pointSets) { p.material.uniforms.uScale.value = scale; p.material.uniforms.uCam.value.copy(cam.position); }
@@ -833,9 +958,9 @@ export function buildCove(game) {
     spawn: { pos: new THREE.Vector3(SPAWN.x, 0, SPAWN.z), yaw: 0, camYaw: Math.PI },
     circles, boxes, camSpheres: [], maxCamDist: 8, terrain: coveHeight, waterLevel: WL, splash,
     doors: [],
-    helpExtra: '<span class="key">T</span> time of day · deep water: <span class="key">Space</span> up, <span class="key">X</span> dive',
-    keys: { KeyT: (ex) => setTime(TIMES[(TIMES.indexOf(timeName) + 1) % TIMES.length], ex) },
-    get timeName() { return timeName; }, setTime, visited, places,
+    helpExtra: '<span class="key">T</span> time of day · <span class="key">G</span> stargaze at night · deep water: <span class="key">Space</span> up, <span class="key">X</span> dive',
+    keys: { KeyT: (ex) => { if (!gaze) setTime(nextPhase(), ex); }, KeyG: (ex) => { if (gaze) stopStargaze(ex); else startStargaze(ex); } },
+    get timeName() { return phaseName(); }, get hour() { return hour; }, setHour: (h) => { hour = h; ffTarget = null; blend(); placeStars(); }, get stargazing() { return !!gaze; }, constellationsFound: () => [...foundCons], setTime, visited, places, camOverride: (dt, ex) => gaze ? (updateGaze(dt, ex), true) : false,
     limit(p) {
       const r = Math.hypot(p.x, p.z - 2);
       if (r > 58) { p.x *= 58 / r; p.z = 2 + (p.z - 2) * 58 / r; }

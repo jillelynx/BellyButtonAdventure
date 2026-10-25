@@ -65,7 +65,7 @@ function headTexture(hair) {
 }
 
 // ---- Shirt texture for each outfit. Layout: x=0.25 front, x=0.75 back. ----
-function shirtTexture(key, o) {
+export function shirtTexture(key, o) {
   return cached('shirt-' + key, () => {
     const W = 1024, H = 512; const [c, g] = makeCanvas(W, H);
     if (key === 'soccer') {
@@ -319,20 +319,69 @@ export function buildLiev(choice) {
   }
 
   // ---- Captain's hat (patrol cap, two silver bars) ----
+  let hatGroup = null;
   if (hat) {
+    hatGroup = new THREE.Group(); head.add(hatGroup);
     const ht = cached('hatcamo', () => digitalCamo(L.hat.camo, 41, 256, 6));
     const hatMat = mat(std('#fff', { map: ht, roughness: 0.9 }));
     const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.138, 0.146, 0.1, 32), hatMat);
-    crown.position.set(0, 0.098, -0.004); crown.scale.set(0.92, 1, 1.06); head.add(shadow(crown));
+    crown.position.set(0, 0.098, -0.004); crown.scale.set(0.92, 1, 1.06); hatGroup.add(shadow(crown));
     const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.014, 24, 1, false, -Math.PI / 2, Math.PI), hatMat);
-    brim.scale.set(1.15, 1, 0.9); brim.position.set(0, 0.052, 0.118); brim.rotation.x = 0.16; head.add(shadow(brim));
+    brim.scale.set(1.15, 1, 0.9); brim.position.set(0, 0.052, 0.118); brim.rotation.x = 0.16; hatGroup.add(shadow(brim));
     const silver = mat(new THREE.MeshStandardMaterial({ color: L.hat.bars, metalness: 0.9, roughness: 0.3 }));
-    for (const sx of [-1, 1]) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.038, 0.006), silver); bar.position.set(sx * 0.014, 0.102, 0.152); bar.rotation.x = -0.1; head.add(bar); }
+    for (const sx of [-1, 1]) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.038, 0.006), silver); bar.position.set(sx * 0.014, 0.102, 0.152); bar.rotation.x = -0.1; hatGroup.add(bar); }
   }
+
+  // ---- Swim gear: snorkel at the surface, scuba when diving (hidden on land) ----
+  const gear = { snorkel: new THREE.Group(), scuba: new THREE.Group(), both: new THREE.Group(), mode: null };
+  {
+    const frameM = mat(std('#1E6F86', { roughness: 0.4 })), glassM = mat(new THREE.MeshStandardMaterial({ color: '#BFEFFF', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.35 }));
+    const strapM = mat(std('#203038', { roughness: 0.6 })), yellow = mat(std('#F2C230', { roughness: 0.35, metalness: 0.2 })), hoseM = mat(std('#2A2A2E', { roughness: 0.6 })), silver = mat(new THREE.MeshStandardMaterial({ color: '#C8CCD2', metalness: 0.85, roughness: 0.3 }));
+    // Mask: a rounded frame over the eyes and nose with a see-through lens.
+    const rr = new THREE.Shape(); const W = 0.088, H = 0.042, R = 0.03;
+    rr.moveTo(-W + R, -H); rr.lineTo(W - R, -H); rr.quadraticCurveTo(W, -H, W, -H + R); rr.lineTo(W, H - R); rr.quadraticCurveTo(W, H, W - R, H); rr.lineTo(-W + R, H); rr.quadraticCurveTo(-W, H, -W, H - R); rr.lineTo(-W, -H + R); rr.quadraticCurveTo(-W, -H, -W + R, -H);
+    const hole = new THREE.Path(); const w2 = W - 0.012, h2 = H - 0.011, r2 = R - 0.01;
+    hole.moveTo(-w2 + r2, -h2); hole.lineTo(w2 - r2, -h2); hole.quadraticCurveTo(w2, -h2, w2, -h2 + r2); hole.lineTo(w2, h2 - r2); hole.quadraticCurveTo(w2, h2, w2 - r2, h2); hole.lineTo(-w2 + r2, h2); hole.quadraticCurveTo(-w2, h2, -w2, h2 - r2); hole.lineTo(-w2, -h2 + r2); hole.quadraticCurveTo(-w2, -h2, -w2 + r2, -h2);
+    rr.holes.push(hole);
+    const mask = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.ExtrudeGeometry(rr, { depth: 0.022, bevelEnabled: true, bevelSize: 0.004, bevelThickness: 0.004, bevelSegments: 2, curveSegments: 8 }), frameM); frame.position.z = -0.012; mask.add(frame);
+    const lens = new THREE.Mesh(new THREE.ShapeGeometry(rr, 8), glassM); lens.position.z = 0.012; mask.add(lens);
+    const mp = surf(1.63, 0, 0.022); mask.position.copy(mp); mask.position.y += 0.004; mask.rotation.x = -0.08; gear.both.add(mask);
+    const strap = new THREE.Mesh(new THREE.TorusGeometry(HR * 1.0, 0.007, 6, 40), strapM); strap.rotation.x = Math.PI / 2 + 0.12; strap.scale.set(0.9, 1.0, 1); strap.position.set(0, mp.y + 0.006, -0.008); gear.both.add(strap);
+    // Snorkel: a yellow tube from the mouth, up the left side of the head.
+    const mouth = surf(1.98, 0.08, 0.012);
+    const tubeCurve = new THREE.CatmullRomCurve3([mouth, mouth.clone().add(new THREE.Vector3(0.05, -0.01, -0.01)), surf(1.85, 0.95, 0.03), surf(1.3, 1.25, 0.03), surf(0.8, 1.35, 0.06), surf(0.45, 1.4, 0.12)]);
+    gear.snorkel.add(new THREE.Mesh(new THREE.TubeGeometry(tubeCurve, 30, 0.011, 8), yellow));
+    const bite = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8), hoseM); bite.position.copy(mouth); gear.snorkel.add(bite);
+    head.add(gear.both, gear.snorkel);
+    // Scuba tank on the back, harness straps, regulator hose to the mouth.
+    const tank = new THREE.Group(); tank.position.set(0, 0.93, -0.19);
+    const cyl = new THREE.Mesh(new THREE.CapsuleGeometry(0.072, 0.34, 6, 18), yellow); tank.add(cyl);
+    const valve = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.026, 0.06, 12), silver); valve.position.y = 0.24; tank.add(valve);
+    const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.014, 12), hoseM); knob.position.y = 0.275; tank.add(knob);
+    for (const y of [-0.1, 0.12]) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.008, 6, 24), strapM); band.rotation.x = Math.PI / 2; band.position.y = y; tank.add(band); }
+    gear.scuba.add(tank);
+    for (const sx of [-1, 1]) { const sh = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.34, 0.012), strapM); sh.position.set(sx * 0.085, 0.99, 0.112); sh.rotation.x = -0.12; gear.scuba.add(sh); }
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.012, 6, 30), strapM); belt.rotation.x = Math.PI / 2; belt.scale.y = 0.74; belt.position.y = 0.8; gear.scuba.add(belt);
+    const headMouth = mouth.clone().multiplyScalar(head.scale.x).add(head.position);
+    const hose = new THREE.CatmullRomCurve3([new THREE.Vector3(0.02, 1.2, -0.19), new THREE.Vector3(0.14, 1.24, -0.08), new THREE.Vector3(0.12, 1.2, 0.08), headMouth.clone().add(new THREE.Vector3(0.03, -0.01, 0.01))]);
+    gear.scuba.add(new THREE.Mesh(new THREE.TubeGeometry(hose, 24, 0.012, 8), hoseM));
+    const reg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 12), hoseM); reg.rotation.x = Math.PI / 2; reg.position.copy(headMouth).add(new THREE.Vector3(0, -0.005, 0.012)); gear.scuba.add(reg);
+    rig.add(gear.scuba);
+    // Fins on both feet (snorkel and scuba).
+    gear.fins = knees.map((k) => { const f = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.27), frameM); f.position.set(0, -0.648 + THIGH, 0.2); f.geometry.translate(0, 0, 0); k.add(f); return f; });
+    [gear.snorkel, gear.scuba, gear.both].forEach(g => { g.visible = false; shadow(g); });
+    gear.fins.forEach(f => { f.visible = false; f.castShadow = true; });
+  }
+  const setGear = (mode) => {
+    if (mode === gear.mode) return; gear.mode = mode;
+    gear.both.visible = !!mode; gear.snorkel.visible = mode === 'snorkel'; gear.scuba.visible = mode === 'scuba';
+    gear.fins.forEach(f => { f.visible = !!mode; });
+  };
 
   const st = { phase: 0, blink: 2 + Math.random() * 2, squash: 0, kick: 0, climb: 0, glow: 0 };
   return {
-    kind: 'liev', name: L.name, root, height: L.height, radius: 0.24, halfWidth: 0.27,
+    kind: 'liev', name: L.name, root, height: L.height, radius: 0.24, halfWidth: 0.27, setGear, get gear() { return gear.mode; },
     parts: { arms, legs, knees, head, eyes, hairParts },
     set glow(v) { st.glow = v; }, get glow() { return st.glow; },
     land(strength = 1) { st.squash = Math.min(1, 0.4 + strength * 0.4); },

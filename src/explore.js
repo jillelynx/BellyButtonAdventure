@@ -161,15 +161,16 @@ export class Explore {
     const a = this.area, p = this.p, f = this.f, ui = this.g.ui;
     const paused = this.g.paused;
     if (!paused) {
+      this.overridden = !this.cut && a.camOverride && a.camOverride(dt, this);   // e.g. stargazing: the area drives the camera
       if (this.cut) this.updateCutscene(dt);
-      else this.updatePlayer(dt);
+      else if (!this.overridden) this.updatePlayer(dt);
       this.updateFriend(dt);
-      if (!this.cut) this.updateInteract();
+      if (!this.cut && !this.overridden) this.updateInteract();
       if (a.keys) for (const k in a.keys) if (Input.hit(k)) a.keys[k](this);
       a.update(dt, { player: p, friend: f, time: this.time, camera: this.camera, explore: this, stamps: this.g.saves.platformer.stamps, doorsFound: this.g.saves.explore.doorsFound });
       this.saveT += dt; if (this.saveT > 4) { this.saveT = 0; this.saveNow(); }
     }
-    if (!this.cut) this.updateCamera(dt, paused);
+    if (!this.cut && !this.overridden) this.updateCamera(dt, paused);
     // Place and animate characters.
     for (const [c, b] of [[this.pc, p], [this.fc, f]]) {
       c.root.position.copy(b.pos); c.root.rotation.order = 'YXZ'; c.root.rotation.y = b.yaw;
@@ -177,7 +178,9 @@ export class Explore {
       const lean = b.swimming ? (b.vy < -0.6 ? 0.95 : b.speed > 0.5 ? 0.55 : 0.12) : 0;
       c.root.rotation.x = damp(c.root.rotation.x, lean, 6, dt);
       if (b.swimming) c.root.position.y += Math.sin(this.time * 2.2 + (b === p ? 0 : 1.7)) * 0.035;
-      if (!paused) c.animate(dt, { speed: b.speed, onGround: b.onGround, floating: b.floating, cheer: b.cheer });
+      // Liev puts on swim gear: a snorkel at the surface, scuba gear as soon as he dives.
+      if (c.setGear) { const wl = this.area.waterLevel; c.setGear(b.swimming && wl !== undefined ? (b.pos.y < wl - c.height * 0.62 - 0.2 ? 'scuba' : 'snorkel') : null); }
+      if (!paused) c.animate(dt, { speed: b.speed, onGround: b.onGround, floating: b.floating, cheer: b.cheer, swimming: b.swimming });
     }
     ui.update(paused ? 0 : dt);
   }

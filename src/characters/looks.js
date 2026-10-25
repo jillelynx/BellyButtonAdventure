@@ -38,7 +38,7 @@ export const LIEV = {
     army: { label: 'Army camo', camo: ['#6B7A4A', '#3F4B2D', '#8B7B55', '#2A2E22'], belt: '#2A2620', buckle: '#C9C3AE',
       boots: '#A88B5E', sole: '#5A4A35', sleeves: 'long', legs: 'trousers' },
     play: { label: 'Play clothes', jacketCamo: ['#6FA06B', '#9CCB94', '#3F6C45', '#2C4A32'], zipper: '#7A7430',
-      collarInside: '#C9DA45', hoodie: '#2347C4', shorts: '#4A3426', socks: '#F4F4F4', shoes: '#1D1D20', sole: '#F0F0F0',
+      collarInside: '#C9DA45', hoodie: '#2347C4', shorts: '#1E1E22', socks: '#F4F4F4', shoes: '#1D1D20', sole: '#F0F0F0',
       sleeves: 'long', legs: 'shorts' },
   },
   hairstyles: { everyday: 'Everyday bangs', styled: 'Styled up + bolt' },

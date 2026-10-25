@@ -5,6 +5,7 @@ import { AudioSys } from './audio.js';
 import { UI } from './ui.js';
 import { Save, DEFAULTS } from './save.js';
 import { DEFAULT_CHOICE, LIEV } from './characters/looks.js';
+import { charactersReady } from './characters/index.js';
 import { Stage } from './select.js';
 import { Explore } from './explore.js';
 import { Platformer } from './platformer.js';
@@ -391,5 +392,7 @@ function frame() {
     game.fpsNow = fpsFrames / fpsAcc; fpsAcc = 0; fpsFrames = 0; worst = 0;
   }
 }
+// Wait (a few seconds at most) for Liev's 3D model, then start.
+await Promise.race([charactersReady, new Promise((r) => setTimeout(r, 8000))]);
 game.setMode('title');
 frame();

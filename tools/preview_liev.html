@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Liev model preview</title>
+<style>body{margin:0;background:#cfe3ee;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three.module.min.js", "three/addons/": "../vendor/addons/" } }</script></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#cfe3ee');
+scene.add(new THREE.HemisphereLight('#ffffff', '#8a7a6a', 1.4)); const d = new THREE.DirectionalLight('#fff3e0', 2.2); d.position.set(1.5, 3, 2.5); scene.add(d);
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.05, 50);
+const view = q.get('view') || 'full';
+const show = (q.get('show') || 'body,headskin,ear,ear_in,eye_white,iris,pupil,glint,lid_L,lid_R,lash,brow,smile,freckle,hair_everyday,play_jacket,play_hood,play_collar,play_hem,play_cuff,play_zip,shorts,socks_low,shoes,shoes_sole').split(',');
+new GLTFLoader().load('../assets/models/liev.glb?v=' + Date.now(), (g) => {
+  g.scene.traverse(o => { if (o.isMesh) { const base = o.name.replace(/_\d+$/, '').split('.')[0].split('__')[0]; o.visible = show.includes(base); } });
+  const yaw = +(q.get('yaw') || 0); g.scene.rotation.y = yaw; scene.add(g.scene);
+  if (view === 'face') { cam.position.set(0, 1.31, 0.75); cam.lookAt(0, 1.3, 0); } else { cam.position.set(0, 0.8, 4.4); cam.lookAt(0, 0.74, 0); }
+  r.render(scene, cam); window.done = true;
+}, undefined, (e) => { document.title = 'ERR ' + e; window.done = true; });
+</script></body></html>

@@ -56,14 +56,28 @@ with sync_playwright() as pw:
     put(3, 14, y=-0.9, swim=True, yaw=math.pi); sim(4.5, ['KeyW']); p = P(); check('Swimming toward the beach walks you back out of the water', not p['swim'] and p['y'] > 0, str(p))
     fr = ev(f"(()=>{{const e={E}; e.p.pos.set(4,-0.9,20); e.p.swimming=true; e.f.pos.set(5,e.area.terrain(5,13),13); return 1;}})()"); sim(5.0)
     check('Belly Button swims along too', ev(f"{E}.f.swimming") == True)
+    put(3, 19, y=-0.9, swim=True); sim(0.3); check('Liev wears a snorkel at the surface', ev(f"{E}.pc.gear") == 'snorkel')
+    sim(1.2, ['KeyX']); check('Liev switches to scuba gear as soon as he dives', ev(f"{E}.pc.gear") == 'scuba')
+    put(3, 4); sim(0.3); check('The swim gear comes off on land', ev(f"{E}.pc.gear") is None)
     # Pier: walk out on the deck, then jump in.
     put(22, 7.6, yaw=0); sim(3.0, ['KeyW']); p = P(); check('You can walk out on the pier', p['z'] > 12 and abs(p['y'] - 0.9) < 0.1, str(p))
     sim(2.5, ['KeyW']); sim(0.05, ['KeyW', 'Space'], ['Space']); sim(1.5, ['KeyW']); p = P(); check('Jumping off the end of the pier lands you in the water, swimming', p['swim'], str(p))
     # Special places and hints.
     put(-16, 2.0); sim(0.3); check('Finding the waterfall counts as a discovery', 'waterfall' in ev(f"[...{E}.area.visited]"))
     # Time of day.
-    t0 = ev(f"{E}.area.timeName"); sim(0.05, [], ['KeyT']); t1 = ev(f"{E}.area.timeName"); sim(0.05, [], ['KeyT']); t2 = ev(f"{E}.area.timeName")
-    check('T changes the time of day (golden hour → day → starry night)', [t0, t1, t2] == ['sunset', 'day', 'night'], str([t0, t1, t2]))
+    ev(f"{E}.area.setHour(17.0)"); s0 = ev(f"{E}.modes" if False else f"{E}.area.hour"); sim(10, [], [], 10); s1 = ev(f"{E}.area.hour")
+    check('Time passes on its own (the sun keeps moving)', s1 > s0 + 0.15, f"{s0:.2f} -> {s1:.2f}")
+    ev(f"{E}.area.setHour(17.9)"); sim(0.05, [], ['KeyT']); sim(3.0, [], [], 20); t1 = ev(f"{E}.area.timeName"); h1 = ev(f"{E}.area.hour")
+    check('T fast-forwards: you watch the sun set and the stars come out', t1 == 'night' and 20 < h1 < 24, f"{t1} {h1:.2f}")
+    sim(0.05, [], ['KeyT']); sim(5.0, [], [], 20); t2 = ev(f"{E}.area.timeName"); sim(0.05, [], ['KeyT']); sim(4.0, [], [], 20); t3 = ev(f"{E}.area.timeName")
+    check('Then the sun rises again, and it becomes day', t2 == 'sunrise' and t3 == 'day', f"{t2} {t3}")
+    # Stargazing.
+    ev(f"{E}.area.setHour(22.5)"); put(2, -8); sim(0.05, [], ['KeyG'])
+    check('G at night starts stargazing', ev(f"{E}.area.stargazing") == True)
+    sim(1.2, ['ArrowLeft']); sim(1.0, ['ArrowUp']); sim(2.5, ['ArrowRight'])
+    found = ev(f"{E}.area.constellationsFound()"); check('Looking around the sky finds real constellations', len(found) >= 1, str(found))
+    sim(0.05, [], ['KeyG']); check('G again stops stargazing', ev(f"{E}.area.stargazing") == False)
+    ev(f"{E}.area.setHour(12)"); sim(0.05, [], ['KeyG']); check('In the daytime it explains the stars come out at night', ev(f"{E}.area.stargazing") == False)
     ev(f"{E}.area.setTime('night', null, true)"); put(15.6, -17.6, yaw=2.4); shot('t3_campfire_night')
     # Campfire marshmallow.
     put(CF := 17.0, -18.4); sim(0.1); sim(0.05, [], ['KeyE']); check('E at the campfire toasts a marshmallow', 'marshmallow' in ev("document.body.innerText").lower())

@@ -40,10 +40,13 @@ Three parts in a row:
 
 ## Liev's Cozy Cove (3D sandbox)
 Step into the painting on the easel in Belly Button's World.
-- Walk and run as usual · **T** changes the time of day · **E** uses things (toast a marshmallow, rest in the hammock, watch the sunset)
+- Walk and run as usual · **T** fast-forwards to the next time of day (watch the sun set or rise) · **G** stargazes at night (drag or arrow keys to look around) · **E** uses things (toast a marshmallow, rest in the hammock, watch the sunset)
 - In deep water you swim: **Space** swims up, **X** dives down to the reef
 - Press **H** for a hint to the next special place (5 to find)
 - Press **F** to see how smoothly it runs. If it's slow, Settings → Graphics → Fast
+
+## Liev's 3D model
+Liev is built in Blender by `tools/blender/build_liev.py` and saved as `assets/models/liev.glb`. To change his shape, edit that script and ask Claude to run it again. `tools/preview_liev3d.html` shows him in different poses and outfits.
 
 ## Project files
 - Story and design: `docs/CONCEPT.md` · Look: `docs/VISUAL_DIRECTION.md` · Tech plan: `docs/FEASIBILITY.md`
