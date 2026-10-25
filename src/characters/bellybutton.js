@@ -78,6 +78,7 @@ export function buildBellyButton() {
   stitch.position.set(0, 0.818 * H, mz + 0.07 * H * 0.995); stitch.rotation.x = -0.25; body.add(stitch);
 
   // Embroidered eyes: dark outline, white ring, grey-blue center.
+  const eyes = [];
   for (const s of [-1, 1]) {
     const a = s * 0.6, p = onSurface(0.872 * H, a, 0.0015);
     const n = new THREE.Vector3(Math.sin(a), 0.12, Math.cos(a)).normalize();
@@ -85,6 +86,7 @@ export function buildBellyButton() {
     const outline = new THREE.Mesh(new THREE.CircleGeometry(0.039 * H, 28), m.eyeOutline); eye.add(outline);
     const ring = new THREE.Mesh(new THREE.CircleGeometry(0.035 * H, 28), m.eyeRing); ring.position.z = 0.0008; eye.add(ring);
     const ctr = new THREE.Mesh(new THREE.CircleGeometry(0.019 * H, 24), m.eyeCenter); ctr.position.z = 0.0016; eye.add(ctr);
+    eyes.push(eye);
   }
 
   // Round ears on the top corners, orange-tan inside.
@@ -121,7 +123,7 @@ export function buildBellyButton() {
     tag.position.copy(onSurface(0.1 * H, Math.PI / 2, 0.004)); body.add(tag);
   }
 
-  const st = { phase: 0, squash: 0, glow: 0, blinkT: 0 };
+  const st = { phase: 0, squash: 0, glow: 0, blinkT: 2 + Math.random() * 2 };
   return {
     kind: 'bellybutton', name: L.name, root, height: H, radius: 0.24, halfWidth: 0.23,
     parts: { arms, feet, bellyButton, bbMat, glowLight },
@@ -150,6 +152,11 @@ export function buildBellyButton() {
       const puff = a.floating ? 1.1 : 1;
       body.scale.set((1 + st.squash * 0.1) * puff, 1 - st.squash * 0.16, (1 + st.squash * 0.1) * puff);
       if (!air && speed < 0.1) body.scale.y *= 1 + Math.sin(st.phase * 0.7) * 0.008; // breathing
+      // Blink: both eyes close together for a moment.
+      st.blinkT -= dt;
+      const shut = st.blinkT < 0.12 ? 0.12 : 1;
+      eyes.forEach((e) => { e.scale.y = shut; });
+      if (st.blinkT < 0) st.blinkT = 2.5 + Math.random() * 3;
       // Belly button glow.
       bbMat.emissiveIntensity = st.glow * 4;
       glowLight.intensity = st.glow * 2.5;

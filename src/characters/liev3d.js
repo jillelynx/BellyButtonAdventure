@@ -103,7 +103,7 @@ export function buildLiev3D(choice) {
   const attach = (obj, b, modelPos, modelQuat = new THREE.Quaternion()) => {   // put an object on a bone at a spot given in Liev's model space
     const inv = new THREE.Matrix4().copy(rest.get(b).M).invert();
     const m = new THREE.Matrix4().compose(modelPos, modelQuat, new THREE.Vector3(1, 1, 1)); m.premultiply(inv);
-    m.decompose(obj.position, obj.quaternion, obj.scale); b.add(obj); return obj;
+    const keepScale = obj.scale.clone(); m.decompose(obj.position, obj.quaternion, obj.scale); obj.scale.multiply(keepScale); b.add(obj); return obj;
   };
   const centerOf = (name, side) => { const box = new THREE.Box3(); (meshes[name] || []).forEach((m) => { const p = m.geometry.attributes.position; for (let i = 0; i < p.count; i++) { vTmp.fromBufferAttribute(p, i); if (side === undefined || Math.sign(vTmp.x) === side) box.expandByPoint(vTmp); } }); return box; };
 
